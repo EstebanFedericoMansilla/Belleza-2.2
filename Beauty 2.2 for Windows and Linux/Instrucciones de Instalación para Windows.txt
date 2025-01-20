@@ -1,0 +1,43 @@
+# Instrucciones de Instalación para Windows
+
+## Requisitos Previos
+- Python 3.11 o superior
+- pip (instalador de paquetes de Python)
+- FFmpeg (para exportar videos)
+
+## Pasos de Instalación
+
+1. **Instalar Python**:
+   - Descargar Python desde [python.org](https://www.python.org/downloads/)
+   - Marcar "Add Python to PATH" durante la instalación
+
+2. **Instalar Dependencias de Python**:
+   Abrir CMD (Símbolo del sistema) y ejecutar:
+   ```bash
+   pip install PyQt6
+   pip install numpy
+   pip install scipy
+Copy
+Insert
+
+Instalar FFmpeg:
+Descargar FFmpeg desde ffmpeg.org
+Extraer el archivo descargado
+Agregar la carpeta 'bin' de FFmpeg al PATH del sistema:
+Panel de Control > Sistema > Configuración avanzada del sistema
+Variables de entorno > Path > Editar > Nuevo
+Agregar la ruta a la carpeta bin de FFmpeg
+Verificar la Instalación:
+python -c "import PyQt6; import numpy; import scipy"
+ffmpeg -version
+Copy
+Insert
+
+Solución de Problemas
+Si hay errores de permisos con pip, ejecutar CMD como administrador
+Si FFmpeg no se encuentra, verificar que esté correctamente agregado al PATH
+Para problemas con PyQt6, intentar: pip install --upgrade pip
+Opcional: Entorno Virtual
+python -m venv venv
+.\venv\Scripts\activate
+pip install -r requirements.txt

@@ -1,0 +1,50 @@
+Instrucciones de Instalación para Linux
+Requisitos Previos
+Python 3.11 o superior
+pip (instalador de paquetes de Python)
+FFmpeg (para exportar videos)
+Pasos de Instalación
+Actualizar el Gestor de Paquetes:
+# Para Debian/Ubuntu
+sudo apt update
+
+# Para Fedora
+sudo dnf update
+Copy
+Insert
+
+Instalar Dependencias del Sistema:
+# Debian/Ubuntu
+sudo apt install python3-pip python3-venv ffmpeg
+sudo apt install python3-pyqt6
+
+# Fedora
+sudo dnf install python3-pip python3-virtualenv ffmpeg
+sudo dnf install python3-qt6
+Copy
+Insert
+
+Instalar Dependencias de Python:
+pip3 install --user PyQt6
+pip3 install --user numpy
+pip3 install --user scipy
+Copy
+Insert
+
+Verificar la Instalación:
+python3 -c "import PyQt6; import numpy; import scipy"
+ffmpeg -version
+Copy
+Insert
+
+Solución de Problemas
+Para errores de permisos: Usar pip3 install --user o crear un entorno virtual
+Para problemas con PyQt6 en Ubuntu: Usar sudo apt install python3-pyqt6
+Si falta FFmpeg: sudo apt install ffmpeg o sudo dnf install ffmpeg
+Opcional: Entorno Virtual
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+Copy
+Insert
+
