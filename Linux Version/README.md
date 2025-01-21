@@ -31,11 +31,22 @@ Descargar el instalador .deb desde:
 
 Si su distribución incluye alguna herramienta gráfica preinstalada, basta con hacer doble clic sobre el fichero `belleza_2.2.2_all.deb`.
 
-### Instalación por comandos:
+### Instrucciones para Ubuntu:
+
+1. Sitúese en el directorio donde se encuentra el fichero y utilice el siguiente comando:
+
+   ```bash
+    sudo apt install ./belleza_2.2.2_all.deb
+    ```
+
+2. Después de la instalación, la aplicación estará disponible en el menú de aplicaciones bajo la categoría **Animación** en Quirinux o **Graphics** en las demás distribuciones.
+
+### Instalación por comandos para otras distros de base Debian:
+
 1. Sitúese en el directorio donde se encuentra el fichero y utilice el siguiente comando con `sudo` o `su root` según su distribución:
 
-    ```bash
-    apt install ./belleza_2.2.2_all.deb
+   ```bash
+    dpkg -i install ./belleza_2.2.2_all.deb
     ```
 
 2. Después de la instalación, la aplicación estará disponible en el menú de aplicaciones bajo la categoría **Animación** en Quirinux o **Graphics** en las demás distribuciones.
