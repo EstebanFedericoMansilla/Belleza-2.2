@@ -1,0 +1,14 @@
+Package: Belleza
+Version: 2.2.0
+Maintainer: Charlie Martinez <cmartinez@quirinux.org>
+Section: graphics
+Homepage: https://www.quirinux.org
+Architecture: all
+Depends: python3-pyqt6, python3-numpy, python3-scipy, python3-pil, ffmpeg
+Priority: optional
+Installed-Size: 208077
+Description: Belleza
+ Dibujos animados 2D cuadro a cuadro. Para proyectos ligeros y sencillos. Autor: Esteban Federico Manzilla.
+
+
+
