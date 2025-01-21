@@ -24,6 +24,11 @@ Este es el paquete para Linux **Belleza**, una aplicación de animación 2D cuad
 - Instalación disponible desde el **Centro de Software**.
 
 ### Otras distribuciones:
+
+Descargar el instalador .deb desde:
+
+[https://repo.quirinux.org/pool/main/b/belleza/]
+
 Si su distribución incluye alguna herramienta gráfica preinstalada, basta con hacer doble clic sobre el fichero `belleza_2.2.2_all.deb`.
 
 ### Instalación por comandos:
