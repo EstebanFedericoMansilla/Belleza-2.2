@@ -1,6 +1,6 @@
 # Belleza
 
-Este es el paquete **Belleza**, una aplicación de animación 2D cuadro a cuadro sencilla.
+Este es el paquete para Linux **Belleza**, una aplicación de animación 2D cuadro a cuadro sencilla.
 
 ## Autor
 - **Esteban Federico Mansilla**
@@ -12,6 +12,11 @@ Este es el paquete **Belleza**, una aplicación de animación 2D cuadro a cuadro
 - Debian
 - Devuan
 - Derivadas
+
+## Compilación del paquete .deb
+
+1) Descargar la carpeta belleza_2.2.0_all
+2) dpkg -b belleza_2.2.0_all
 
 ## Instalación
 
