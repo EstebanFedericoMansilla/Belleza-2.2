@@ -1,3 +1,0 @@
-Se soluciono el bug de cierre del programa al dar clic sobre los paneles de la interfaz.
-
-The program closing bug when clicking on the interface panels has been solved.

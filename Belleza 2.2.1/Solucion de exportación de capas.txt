@@ -1,0 +1,11 @@
+Comento el bug que tiene Bellleza 2.2, al dibujar en la primera capa y luego crear otra capa para el fondo  pintadola  con el bote de pintura y, moviéndola debajo de la primer capa con botón secundario del mouse,  al exportar no se renderizaba la primer capa donde el dibujo, por lo que solo se exportaba la segunda capa que tenía el color del fondo, si bien ese bug podría pasar por alto ya que, se podría dar a entender que la primera capa es la que tendría que tener el color del fondo, pero no me parecía justo así que lo solucione!
+Al solucionarlo se creó otro bug que creo que tiene que ver con cosas de librerías no lo se, el cual al dar un clic sobre los paneles de la interfaz se cerraba el programa, en total se soluciono el primer bug del orden de las capas y el nuevo bug de cerrado del programa al dar Clic en los paneles de la interfaz. 
+Espero haberme dado a entender, ya que es bastante difícil de descubrir el bug y de explicarlo, por su sutiliza, y mi desconocimiento del segundo Bug de cierre del programa! Lo importante es que ya no habrá confusiones en el organizado de capas para su exportación a imagen y video!
+
+La versión de Belleza 2.2.1 soluciona los dos Bugs
+
+I comment on the bug that Beauty 2.2 has, when drawing on the first layer and then creating another layer for the background, painted it with the paint can and, moving it below the first layer with the right mouse button, when exporting the first layer was not rendered where the drawing, so only the second layer that had the background color was exported, although this bug could be overlooked since it could be implied that the first layer is the one that should have the background color , but I don't It seemed fair so I fixed it!
+When solving it, another bug was created that I think has to do with library things, I don't know, which when clicking on the interface panels closed the program, in total the first bug of the order of the layers was solved and the new bug that closes the program when clicking on the interface panels. 
+I hope I have made myself understood, since it is quite difficult to discover the bug and explain it, due to its subtlety, and my ignorance of the second Program Closing Bug! The important thing is that there will no longer be confusion in organizing layers for export to image and video!
+
+Beauty version 2.2.1 fixes both Bugs
