@@ -7,9 +7,6 @@ import weakref
 import numpy as np
 from scipy.interpolate import splprep, splev
 
-from PyQt6.QtCore import Qt, QBuffer, QByteArray, QIODevice
-from PyQt6.QtGui import QImage
-
 from PyQt6.QtCore import (
     QBuffer, QByteArray, QIODevice, Qt, QSize, QPoint, 
     QPointF, QTimer, QRect
@@ -26,107 +23,78 @@ from PyQt6.QtWidgets import (
     QSlider, QScrollArea, QGridLayout, QColorDialog, QMessageBox, 
     QFileDialog, QMenu, QInputDialog
 )
-import gc
-import weakref
-from PyQt6.QtCore import Qt, QBuffer, QByteArray, QIODevice
-from PyQt6.QtGui import QImage
-
 class Layer:
-    def __init__(self, width: int, height: int, index: int = 0, name: str = "Nueva Capa"):
-        """Inicializa una nueva capa con dimensiones específicas.
-        
-        Args:
-            width (int): Ancho de la capa en píxeles
-            height (int): Alto de la capa en píxeles
-            index (int): Posición de la capa en la pila
-            name (str): Nombre de la capa
-        """
+    def __init__(self, width, height, index=0, name="Nueva Capa"):
         self.index = index
+        self.frames = {}
         self.width = width
         self.height = height
-        self.name = name
         self.visible = True
         self.opacity = 100
+        self.name = name
         self.locked = False
         self.selected = False
-        
-        # Gestión de frames
-        self.frames = {}
-        self._frame_cache = weakref.WeakValueDictionary()
-        
-        # Gestión del historial
         self.undo_stack = []
         self.redo_stack = []
-        self.max_undo_states = 20
+        self._init_first_frame()
+        # Optimized memory management
         
+        self.max_undo_states = 10
+        self._frame_cache = weakref.WeakValueDictionary()
         self._init_first_frame()
 
     def _init_first_frame(self):
-        """Inicializa el primer frame de la capa."""
-        try:
-            frame = QImage(self.width, self.height, QImage.Format.Format_ARGB32_Premultiplied)
-            if frame.isNull():
-                raise RuntimeError("Error al crear QImage")
-            frame.fill(Qt.GlobalColor.transparent)
-            self.frames[0] = frame
-            self._save_state()
-        except Exception as e:
-            raise RuntimeError(f"Error al inicializar el primer frame: {str(e)}")
-
+        frame = QImage(self.width, self.height, QImage.Format.Format_ARGB32_Premultiplied)
+        frame.fill(Qt.GlobalColor.transparent)  # Cambiamos a transparente
+        self.frames[0] = frame
+        self._save_state()
+    def optimize_memory(self):
+        """Force memory optimization"""
+        self._cleanup_inactive_frames()
+        self._clean_save_state()
+        gc.collect()
     def _save_state(self):
-        """Guarda el estado actual para operaciones de deshacer/rehacer."""
-        try:
-            if self.frames:
-                frame_copies = {k: v.copy() for k, v in self.frames.items()}
-                if len(self.undo_stack) >= self.max_undo_states:
-                    self.undo_stack.pop(0)
-                self.undo_stack.append(frame_copies)
-                self.redo_stack.clear()
-        except Exception as e:
-            print(f"Advertencia: Error al guardar el estado: {str(e)}")
+        """Guarda el estado actual de la capa para undo/redo"""
+        if self.frames:
+            frame_copies = {k: v.copy() for k, v in self.frames.items()}
+            # Limitar el tamaño del stack para evitar uso excesivo de memoria
+            if len(self.undo_stack) > 20:  # mantener máximo 20 estados
+                self.undo_stack.pop(0)
+            self.undo_stack.append(frame_copies)
+            self.redo_stack.clear()
 
-    def add_frame(self, index: int = None) -> int:
-        """Añade un nuevo frame a la capa."""
-        try:
-            new_frame = QImage(self.width, self.height, QImage.Format.Format_ARGB32_Premultiplied)
-            if new_frame.isNull():
-                raise RuntimeError("Error al crear nuevo frame")
-            
-            new_frame.fill(Qt.GlobalColor.transparent)
-            new_index = index if index is not None else (max(self.frames.keys()) + 1 if self.frames else 0)
-            self.frames[new_index] = new_frame
-            self._save_state()
-            return new_index
-        except Exception as e:
-            raise RuntimeError(f"Error al añadir frame: {str(e)}")
+    def add_frame(self, index=None):
+        # Asegurarse de usar las dimensiones actuales de la capa
+        new_frame = QImage(self.width, self.height, QImage.Format.Format_ARGB32_Premultiplied)
+        new_frame.fill(Qt.GlobalColor.transparent)
+        
+        if index is None:
+            new_index = max(self.frames.keys()) + 1 if self.frames else 0
+        else:
+            new_index = index
+        
+        self.frames[new_index] = new_frame
+        self._save_state()
+        return new_index
 
-    def get_frame(self, index: int) -> QImage:
-        """Obtiene un frame en el índice especificado."""
+    def get_frame(self, index):
         if index not in self.frames:
             self.add_frame(index)
         return self.frames[index]
 
-    def update_frame(self, index: int, image: QImage):
-        """Actualiza un frame con nueva imagen."""
-        if not isinstance(image, QImage) or image.isNull():
-            raise ValueError("Imagen inválida proporcionada para actualización")
-        
-        try:
-            if index not in self.frames:
-                self.add_frame(index)
-            self.frames[index] = image.copy()
-            self._save_state()
-        except Exception as e:
-            raise RuntimeError(f"Error al actualizar frame: {str(e)}")
+    def update_frame(self, index, image):
+        if index not in self.frames:
+            self.add_frame(index)
+        self.frames[index] = image.copy()
+        self._save_state()
 
     def copy_frame(self, frame_index):
-        """Copia un frame en el índice especificado."""
         if frame_index in self.frames:
             return self.frames[frame_index].copy()
         return None
 
     def undo(self):
-        """Deshace la última acción en esta capa."""
+        """Deshace la última acción en esta capa"""
         if len(self.undo_stack) > 1:
             current_state = self.undo_stack.pop()
             self.redo_stack.append(current_state)
@@ -136,16 +104,15 @@ class Layer:
         return False
 
     def redo(self):
-        """Rehace la última acción deshecha."""
         if self.redo_stack:
             state = self.redo_stack.pop()
             self.undo_stack.append({k: v.copy() for k, v in state.items()})
             self.frames = {k: v.copy() for k, v in state.items()}
             return True
         return False
-
-    def to_dict(self) -> dict:
-        """Convierte la capa a diccionario para serialización."""
+      
+    def to_dict(self):
+        """Convierte la capa a un diccionario para serialización"""
         layer_data = {
             'index': self.index,
             'width': self.width,
@@ -158,57 +125,40 @@ class Layer:
             'frames': {}
         }
         
+        # Convertir frames a base64
         for frame_idx, frame in self.frames.items():
-            try:
-                buffer = QBuffer()
-                buffer.open(QIODevice.OpenModeFlag.WriteOnly)
-                success = frame.save(buffer, "PNG")
-                if not success:
-                    raise RuntimeError(f"Error al guardar el frame {frame_idx}")
-                
-                layer_data['frames'][str(frame_idx)] = buffer.data().toBase64().data().decode()
-                buffer.close()
-            except Exception as e:
-                raise RuntimeError(f"Error al serializar el frame {frame_idx}: {str(e)}")
-        
+            buffer = QBuffer()
+            buffer.open(QIODevice.OpenModeFlag.WriteOnly)
+            frame.save(buffer, "PNG")
+            layer_data['frames'][str(frame_idx)] = buffer.data().toBase64().data().decode()
+            buffer.close()
+            
         return layer_data
 
     @classmethod
-    def from_dict(cls, data: dict) -> 'Layer':
-        """Crea una nueva capa desde datos de diccionario."""
-        try:
-            layer = cls(
-                width=data['width'],
-                height=data['height'],
-                index=data['index'],
-                name=data['name']
-            )
+    def from_dict(cls, data):
+        """Crea una nueva capa desde un diccionario"""
+        layer = cls(
+            width=data['width'],
+            height=data['height'],
+            index=data['index'],
+            name=data['name']
+        )
+        layer.visible = data['visible']
+        layer.opacity = data['opacity']
+        layer.locked = data['locked']
+        layer.selected = data.get('selected', False)
+        
+        # Restaurar frames desde base64
+        for frame_idx, frame_data in data['frames'].items():
+            byte_data = QByteArray.fromBase64(frame_data.encode())
+            frame = QImage()
+            frame.loadFromData(byte_data, "PNG")
+            layer.frames[int(frame_idx)] = frame
             
-            layer.visible = data['visible']
-            layer.opacity = data['opacity']
-            layer.locked = data['locked']
-            layer.selected = data.get('selected', False)
-            
-            for frame_idx, frame_data in data['frames'].items():
-                byte_data = QByteArray.fromBase64(frame_data.encode())
-                frame = QImage()
-                if not frame.loadFromData(byte_data, "PNG"):
-                    raise RuntimeError(f"Error al cargar el frame {frame_idx}")
-                layer.frames[int(frame_idx)] = frame
-            
-            return layer
-        except Exception as e:
-            raise RuntimeError(f"Error al crear capa desde diccionario: {str(e)}")
-
-    def optimize_memory(self):
-        """Optimiza el uso de memoria limpiando recursos."""
-        self.undo_stack = self.undo_stack[-self.max_undo_states:]
-        self.redo_stack.clear()
-        self._frame_cache.clear()
-        gc.collect()
+        return layer
 
     def copy(self):
-        """Crea una copia de esta capa."""
         new_layer = Layer(
             width=self.width,
             height=self.height,
@@ -250,7 +200,7 @@ class AnimationCanvas(QWidget):
         self.onion_skin_enabled = False
         self.onion_skin_frames = 1
         self.onion_skin_opacity = 30
-        self.stroke_manager = StrokeManager(self)
+        
         # Inicializar cursores personalizados
         self.setup_cursors()
         
@@ -936,8 +886,6 @@ class AnimationCanvas(QWidget):
         
         self.setFixedSize(new_width, new_height)
         self.draw_current_frame()
-
-    
 
 class TimelineWidget(QWidget):
     def __init__(self, canvas, parent=None):
@@ -1640,28 +1588,18 @@ class SelectionTool:
 class AnimationApp(QMainWindow):
     def __init__(self):
         super().__init__()
+
         # Inicializar atributos de transformación
         self.offset = QPoint(0, 0)
         self.scale_factor = 1.0
-        
-        # Initialize drawing-related attributes
-        self.drawing = False
-        self.current_tool = "pencil"  # Default tool
-        self.pen_color = QColor(Qt.GlobalColor.black)
-        self.pen_size = 3
-        self.pen_opacity = 255
-        self.stroke_manager = None  # Will be initialized after canvas creation
-        
         # Eliminar la barra de título predeterminada
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
         self.init_ui()
         self.showMaximized()
         
-        # Initialize stroke manager after canvas is created
-        self.stroke_manager = StrokeManager(self.canvas)
-        
         # Establecer el foco para capturar eventos de teclado
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+
 
     def init_ui(self):
         # Configuración básica de la ventana
@@ -1871,44 +1809,23 @@ class AnimationApp(QMainWindow):
             self.showMaximized()
 
     def mousePressEvent(self, event):
+        """Permite arrastrar la ventana cuando se hace clic en la barra de título."""
         if event.button() == Qt.MouseButton.LeftButton:
-            # Convert global coordinates to canvas coordinates
-            canvas_pos = self.canvas.mapFrom(self, event.pos())
-            transformed_pos = (canvas_pos - self.canvas.offset) / self.canvas.scale_factor
-            
-            # Delegate the event to canvas if it's within its bounds
-            if self.canvas.rect().contains(canvas_pos):
-                if self.current_tool == "pencil":
-                    self.stroke_manager.start_stroke(
-                        transformed_pos,
-                        self.canvas.pen_color,
-                        self.canvas.pen_size,
-                        self.canvas.pen_opacity
-                    )
-                    self.drawing = True
-                # Let the canvas handle other tools
-                else:
-                    self.canvas.mousePressEvent(event)
-
+            if event.position().y() <= 30:  # Altura de la barra de título
+                self.drag_position = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+                event.accept()
 
     def mouseMoveEvent(self, event):
-        if self.drawing and self.current_tool == "pencil":
-            canvas_pos = self.canvas.mapFrom(self, event.pos())
-            transformed_pos = (canvas_pos - self.canvas.offset) / self.canvas.scale_factor
-            if self.canvas.rect().contains(canvas_pos):
-                self.stroke_manager.add_point(transformed_pos)
-                self.canvas.update()
-        else:
-            self.canvas.mouseMoveEvent(event)
+        """Mueve la ventana mientras se arrastra."""
+        if hasattr(self, 'drag_position'):
+            if event.buttons() & Qt.MouseButton.LeftButton:
+                self.move(event.globalPosition().toPoint() - self.drag_position)
+                event.accept()
 
     def mouseReleaseEvent(self, event):
-        if event.button() == Qt.MouseButton.LeftButton:
-            if self.drawing:
-                self.stroke_manager.end_stroke()
-                self.drawing = False
-                self.canvas.update()
-            else:
-                self.canvas.mouseReleaseEvent(event)
+        """Limpia la posición de arrastre cuando se suelta el botón del mouse."""
+        if hasattr(self, 'drag_position'):
+            del self.drag_position 
     
     def prompt_resize_canvas(self):
         """Prompt the user to enter new canvas dimensions."""
@@ -2239,7 +2156,6 @@ class AnimationApp(QMainWindow):
                 QMessageBox.critical(self, "Error", f"Error al exportar el video: {str(e)}")
                 if 'temp_dir' in locals():
                     shutil.rmtree(temp_dir)
-    
     def show_color_dialog(self):
         color = QColorDialog.getColor(self.canvas.pen_color, self)
         if color.isValid():
@@ -2358,101 +2274,7 @@ class ResizableTimelineLayout(QWidget):
         super().resizeEvent(event)
         self._update_size_constraints()
 
-class Stroke:
-    """
-    Clase para manejar trazos individuales con suavizado pixelado.
-    """
-    def __init__(self, color=Qt.GlobalColor.black, width=1, opacity=255):
-        self.points = []
-        self.color = color
-        self.width = width
-        self.opacity = opacity
-        self.pixelated = True
-        self.pixel_size = 1
 
-    def add_point(self, point):
-        """Añade un punto al trazo."""
-        self.points.append(point)
-
-    def draw(self, painter):
-        """
-        Dibuja el trazo con efecto pixelado.
-        """
-        if not self.points:
-            return
-
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
-        
-        # Configurar el pincel
-        pen = QPen(self.color)
-        pen.setWidth(self.width)
-        pen.setCapStyle(Qt.PenCapStyle.SquareCap)
-        pen.setJoinStyle(Qt.PenJoinStyle.BevelJoin)
-        painter.setPen(pen)
-        
-        # Dibujar puntos pixelados
-        for point in self.points:
-            x = int(point.x() / self.pixel_size) * self.pixel_size
-            y = int(point.y() / self.pixel_size) * self.pixel_size
-            painter.drawRect(x, y, self.pixel_size, self.pixel_size)
-
-class StrokeManager:
-    """
-    Gestor de trazos para el canvas de animación.
-    """
-    def __init__(self, canvas):
-        self.canvas = canvas
-        self.current_stroke = None
-        self.strokes = []
-        self.pixel_size = 1
-        self.last_point = None
-
-    def start_stroke(self, point, color, width, opacity):
-        """Inicia un nuevo trazo."""
-        self.current_stroke = Stroke(color, width, opacity)
-        self.current_stroke.pixel_size = self.pixel_size
-        self.add_point(point)
-        self.last_point = point
-
-    def add_point(self, point):
-        """Añade un punto al trazo actual."""
-        if not self.current_stroke:
-            return
-
-        # Interpolar puntos entre el último punto y el actual
-        if self.last_point:
-            dx = point.x() - self.last_point.x()
-            dy = point.y() - self.last_point.y()
-            distance = ((dx * dx) + (dy * dy)) ** 0.5
-            
-            if distance > self.pixel_size:
-                steps = int(distance / self.pixel_size)
-                for i in range(steps):
-                    t = i / steps
-                    x = self.last_point.x() + dx * t
-                    y = self.last_point.y() + dy * t
-                    self.current_stroke.add_point(QPointF(x, y))
-
-        self.current_stroke.add_point(point)
-        self.last_point = point
-
-    def end_stroke(self):
-        """Finaliza el trazo actual."""
-        if self.current_stroke:
-            self.strokes.append(self.current_stroke)
-            self.current_stroke = None
-            self.last_point = None
-
-    def draw_current_stroke(self, painter):
-        """Dibuja el trazo actual."""
-        if self.current_stroke:
-            self.current_stroke.draw(painter)
-
-    def set_pixel_size(self, size):
-        """Establece el tamaño de píxel para el efecto pixelado."""
-        self.pixel_size = max(1, size)
-        if self.current_stroke:
-            self.current_stroke.pixel_size = self.pixel_size
     
 if __name__ == '__main__':
     app = QApplication([])

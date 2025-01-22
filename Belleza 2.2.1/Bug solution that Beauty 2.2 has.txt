@@ -1,0 +1,167 @@
+I comment on the bug that Beauty 2.2 has, when drawing on the first layer and then creating another layer for the background, painted it with the paint can and, moving it below the first layer with the right mouse button, when exporting the first layer was not rendered where it was drawn, so only the second layer that had the background color was exported, although this bug could be overlooked since it could be implied that the first layer is the one that should have the background color , but I don't It seemed fair so I fixed it!
+Beauty version 2.2.1 fixes the Bug
+The changes that solved the bug:
+
+Comento el bug que tiene Bellleza 2.2, al dibujar en la primera capa y luego crear otra capa para el fondo  pintadola  con el bote de pintura y, moviéndola debajo de la primer capa con botón secundario del mouse,  al exportar no se renderizaba la primer capa donde se dibujo, por lo que solo se exportaba la segunda capa que tenía el color del fondo, si bien ese bug podría pasar por alto ya que, se podría dar a entender que la primera capa es la que tendría que tener el color del fondo, pero no me parecía justo así que lo solucione!
+La versión de Belleza 2.2.1 soluciona el Bug
+Los cambios que solucionaron el bug:
+
+class AnimationApp(QMainWindow):
+    def __init__(self):
+        super().__init__()
+
+        # Inicializar atributos de transformación
+        self.offset = QPoint(0, 0) #Se agrego está línea de código #This line of code was added
+        self.scale_factor = 1.0 #Se agrego está otra línea de código #This line of code was added
+        
+	# Eliminar la barra de título predeterminada
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
+        self.init_ui()
+        self.showMaximized()
+        
+        # Establecer el foco para capturar eventos de teclado
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+
+
+Las funciones de Exportar imegen y video fueron modificadas.
+The Export image and video functions were modified.
+
+def export_image(self):
+        """
+        Exporta los frames de la animación como imágenes PNG, 
+        combinando correctamente todas las capas visibles.
+        """
+        directory = QFileDialog.getExistingDirectory(
+            self,
+            "Seleccionar carpeta para exportar imágenes",
+            "",
+            QFileDialog.Option.ShowDirsOnly
+        )
+        
+        if directory:
+            try:
+                # Obtener el número total de frames
+                max_frames = max(len(layer.frames) for layer in self.canvas.layers) if self.canvas.layers else 0
+                
+                # Guardar cada frame
+                for frame_index in range(max_frames):
+                    # Crear imagen con el color de fondo
+                    frame_image = QImage(
+                        self.canvas.width(),
+                        self.canvas.height(),
+                        QImage.Format.Format_ARGB32_Premultiplied
+                    )
+                    frame_image.fill(self.canvas.background_color)
+                    
+                    # Configurar el painter
+                    painter = QPainter(frame_image)
+                    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+                    
+                    # Dibujar cada capa visible desde abajo hacia arriba
+                    for layer in self.canvas.layers:  # Las capas ya están en el orden correcto
+                        if layer.visible and frame_index in layer.frames:
+                            frame = layer.frames[frame_index]
+                            if not frame.isNull():
+                                painter.setOpacity(layer.opacity / 100.0)
+                                painter.drawImage(0, 0, frame)
+                    
+                    painter.end()
+                    
+                    # Crear nombre de archivo
+                    file_name = os.path.join(directory, f"frame_{frame_index:04d}.png")
+                    
+                    # Guardar imagen
+                    if not frame_image.save(file_name, "PNG"):
+                        raise Exception(f"Error al guardar el frame {frame_index}")
+                
+                QMessageBox.information(
+                    self,
+                    "Éxito",
+                    f"Se exportaron {max_frames} imágenes correctamente en:\n{directory}"
+                )
+                
+            except Exception as e:
+                QMessageBox.critical(
+                    self,
+                    "Error",
+                    f"Error al exportar las imágenes: {str(e)}"
+                )
+
+    def export_video(self):
+        """
+        Exporta la animación como video MP4, combinando correctamente todas las capas visibles.
+        """
+        try:
+            import subprocess
+        except ImportError:
+            QMessageBox.critical(self, "Error", "Se requiere subprocess para exportar video")
+            return
+
+        file_name, _ = QFileDialog.getSaveFileName(
+            self,
+            "Exportar Video",
+            "",
+            "Video MP4 (*.mp4)"
+        )
+        
+        if file_name:
+            try:
+                temp_dir = tempfile.mkdtemp()
+                
+                if self.canvas.layers:
+                    max_frames = max(len(layer.frames) for layer in self.canvas.layers)
+                    
+                    # Exportar frames
+                    for frame_idx in range(max_frames):
+                        # Crear imagen con el color de fondo
+                        frame_image = QImage(
+                            self.canvas.width(),
+                            self.canvas.height(),
+                            QImage.Format.Format_ARGB32_Premultiplied
+                        )
+                        frame_image.fill(self.canvas.background_color)
+                        
+                        # Configurar el painter
+                        painter = QPainter(frame_image)
+                        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+                        
+                        # Dibujar cada capa visible desde abajo hacia arriba
+                        for layer in self.canvas.layers:  # Las capas ya están en el orden correcto
+                            if layer.visible and frame_idx in layer.frames:
+                                frame = layer.frames[frame_idx]
+                                if not frame.isNull():
+                                    painter.setOpacity(layer.opacity / 100.0)
+                                    painter.drawImage(0, 0, frame)
+                        
+                        painter.end()
+                        
+                        # Guardar frame temporal
+                        frame_file = os.path.join(temp_dir, f"frame_{frame_idx:04d}.png")
+                        if not frame_image.save(frame_file, "PNG"):
+                            raise Exception(f"Error al guardar el frame temporal {frame_idx}")
+                    
+                    # Crear video con FFmpeg
+                    try:
+                        fps = self.timeline_widget.speed_slider.value()
+                        subprocess.run([
+                            'ffmpeg',
+                            '-framerate', str(fps),
+                            '-i', os.path.join(temp_dir, 'frame_%04d.png'),
+                            '-c:v', 'libx264',
+                            '-pix_fmt', 'yuv420p',
+                            '-y',
+                            file_name
+                        ], check=True)
+                        QMessageBox.information(self, "Éxito", "Video exportado correctamente")
+                    except subprocess.CalledProcessError:
+                        QMessageBox.critical(self, "Error", "Error al ejecutar FFmpeg")
+                    except FileNotFoundError:
+                        QMessageBox.critical(self, "Error", "FFmpeg no encontrado. Por favor, instale FFmpeg")
+                    finally:
+                        # Limpiar archivos temporales
+                        shutil.rmtree(temp_dir)
+                        
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Error al exportar el video: {str(e)}")
+                if 'temp_dir' in locals():
+                    shutil.rmtree(temp_dir)
