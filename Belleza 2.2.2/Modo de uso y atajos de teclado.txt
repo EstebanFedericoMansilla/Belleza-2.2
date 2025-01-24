@@ -1,0 +1,52 @@
+
+
+Atajos de teclado de Belleza 2.0
+
+Presione 1 para la herramienta lápiz
+
+Presione 2 para la herramienta de borrador
+
+Presione 3 para la herramienta de cubo
+
+Presione 4 para la herramienta de selección
+
+Presione 5 para abrir el cuadro de diálogo del selector de color
+
+Presione 6 para alternar la función de piel de cebolla
+
+Presione + para aumentar el tamaño del lápiz. Presione - para disminuir el tamaño del lápiz.
+
+Control Z: Elimina trazos.
+
+Control Y: Rehace trazos eliminados.
+
+Control C: Copia un fotograma.
+
+Control V: Pega un fotograma.
+
+F5: Duplica un fotograma.
+
+Control + scroll del Mouse: Hace zoom hace adelante y hace atrás.
+
+Alt + scroll: Mueve hacia la derecha e izquierda horizontalmente.
+
+Shift + scroll: Sube y baja el lienzo.
+
+Botón secundario para opciones de agredado, copiado y pegado de capas y fotogramas:
+
+Botón secundario para opciones de subir y bajar dibujos en el lienzo.
+
+Con las flechas del teclado Izquierda y derecha, nos movemos entre los fotogramas.
+
+La Barra espaciadora cumple varias funciones: Reproduce y detiene la animación, para habilitar esta función hay que dar play con el botón de reproducir animación;
+Otra función de la barra espaciadora es que es un repetidor de las acciones de agregar y eliminar fotogramas, también suplanta tener que aceptar todos los diálogos de las acciones de agregar y eliminar fotogramas, lo que aumenta la velocidad de trabajo.
+
+
+
+
+
+
+
+
+
+
