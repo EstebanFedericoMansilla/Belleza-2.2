@@ -4,6 +4,8 @@
 # Versión para Linux, modificada por Charlie Martínez <cmartinez@quirinux.org> 21-01-2025
 # Advertencia: versión no apta para Windows, donde se debe seguir utilizando el código original.
 
+
+
 import os
 import tempfile
 import shutil
@@ -749,6 +751,7 @@ class AnimationCanvas(QWidget):
     def get_smooth_path(self, points):
         """
         Creates a smooth path from a list of points using spline interpolation.
+        Enhanced tablet support while maintaining original mouse behavior.
         """
         if len(points) < 3:
             path = QPainterPath()
@@ -758,32 +761,67 @@ class AnimationCanvas(QWidget):
                     path.lineTo(QPointF(point))
             return path
 
-        # Usar el mismo muestreo de puntos para mouse y tableta
-        if len(points) > 50:
-            points = points[::2]  # Tomar uno de cada dos puntos
+        # Detectar si es entrada de tableta
+        is_tablet = len(points) > 50
+
+        if is_tablet:
+            # Para tableta: ajustar puntos manteniendo la forma
+            normalized_points = []
+            prev_point = points[0]
+            normalized_points.append(prev_point)
+            
+            # Distancia más pequeña para mejor precisión en curvas cerradas
+            target_distance = 3.0
+            
+            for point in points[1:]:
+                distance = ((point.x() - prev_point.x())**2 + 
+                        (point.y() - prev_point.y())**2)**0.5
+                if distance >= target_distance:
+                    # Interpolar punto adicional en curvas cerradas
+                    if distance > target_distance * 2:
+                        mid_x = (prev_point.x() + point.x()) / 2
+                        mid_y = (prev_point.y() + point.y()) / 2
+                        normalized_points.append(QPointF(mid_x, mid_y))
+                    normalized_points.append(point)
+                    prev_point = point
+            
+            points = normalized_points
+        else:
+            # Mantener comportamiento original del mouse
+            if len(points) > 50:
+                points = points[::2]
 
         # Convert points to numpy arrays
         x = np.array([p.x() for p in points])
         y = np.array([p.y() for p in points])
 
-        # Check if points are not all the same
         if np.std(x) == 0 and np.std(y) == 0:
             path = QPainterPath()
             path.moveTo(QPointF(points[0]))
             return path
 
         try:
-            # Usar el mismo factor de suavizado para ambos dispositivos
-            s = self.smoothing_factor * len(points) / 100.0
+            if is_tablet:
+                # Ajuste fino para tableta
+                base_smoothing = self.smoothing_factor / 100.0
+                s = base_smoothing * 25  # Reducido para evitar residuos
+            else:
+                # Mantener comportamiento original del mouse
+                s = self.smoothing_factor * len(points) / 100.0
             
-            # Fit spline con los mismos parámetros
+            # Fit spline
             tck, u = splprep([x, y], s=s, k=3)
             
-            # Generar la misma cantidad de puntos para la curva
-            u_new = np.linspace(0, 1.0, len(points) * 2)
+            # Ajustar densidad de puntos
+            if is_tablet:
+                output_points = len(points) * 2  # Reducido para evitar residuos
+            else:
+                output_points = len(points) * 2
+                
+            u_new = np.linspace(0, 1.0, output_points)
             smooth_points = splev(u_new, tck)
 
-            # Create path with QPointF
+            # Crear path
             path = QPainterPath()
             path.moveTo(QPointF(smooth_points[0][0], smooth_points[1][0]))
             for i in range(1, len(smooth_points[0])):
@@ -791,7 +829,7 @@ class AnimationCanvas(QWidget):
             
             return path
         except:
-            # Fallback to simple path if smoothing fails
+            # Fallback path
             path = QPainterPath()
             path.moveTo(QPointF(points[0]))
             for point in points[1:]:
@@ -799,6 +837,10 @@ class AnimationCanvas(QWidget):
             return path
 
     def _flood_fill(self, start_pos, target_color, replacement_color):
+        """
+        Enhanced flood fill algorithm that prevents gaps between fill and strokes.
+        Uses 8-directional filling and color tolerance for smoother results.
+        """
         if not self.layers:
             return
                 
@@ -810,7 +852,7 @@ class AnimationCanvas(QWidget):
         width = current_frame.width()
         height = current_frame.height()
         
-        # Crear una copia del frame actual para trabajar
+        # Create a copy of the frame to work on
         working_frame = current_frame.copy()
         
         # Get start pixel color
@@ -818,13 +860,31 @@ class AnimationCanvas(QWidget):
         if start_color == replacement_color:
             return
         
-        # Create stack for flood fill
-        stack = [(start_pos.x(), start_pos.y())]
-        visited = set()
+        # Color tolerance for matching (0-255)
+        tolerance = 150
+        
+        def colors_match(color1, color2):
+            return (abs(color1.red() - color2.red()) <= tolerance and
+                    abs(color1.green() - color2.green()) <= tolerance and
+                    abs(color1.blue() - color2.blue()) <= tolerance and
+                    abs(color1.alpha() - color2.alpha()) <= tolerance)
         
         # Create painter for drawing
         painter = QPainter(working_frame)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         painter.setPen(QPen(replacement_color))
+        
+        # Use set for visited pixels to prevent duplicates
+        visited = set()
+        # Use list for stack (more efficient than recursion)
+        stack = [(start_pos.x(), start_pos.y())]
+        
+        # 8-directional fill (including diagonals)
+        directions = [
+            (-1, -1), (0, -1), (1, -1),
+            (-1,  0),          (1,  0),
+            (-1,  1), (0,  1), (1,  1)
+        ]
         
         while stack:
             x, y = stack.pop()
@@ -833,14 +893,15 @@ class AnimationCanvas(QWidget):
                 continue
                 
             current_color = working_frame.pixelColor(x, y)
-            if current_color != start_color:
+            if not colors_match(current_color, start_color):
                 continue
                 
+            # Draw the current pixel
             painter.drawPoint(x, y)
             visited.add((x, y))
             
-            # Check neighboring pixels
-            for dx, dy in [(0, 1), (1, 0), (0, -1), (-1, 0)]:
+            # Check all 8 directions
+            for dx, dy in directions:
                 new_x = x + dx
                 new_y = y + dy
                 
@@ -851,13 +912,11 @@ class AnimationCanvas(QWidget):
         
         painter.end()
         
-        # Actualizar el frame en la capa actual
+        # Update the frame in the current layer
         current_layer.frames[self.current_frame] = working_frame
-        
-        # Guardar el estado después de aplicar el flood fill
         current_layer._save_state()
         
-        # Actualizar la visualización
+        # Update the display
         self.draw_current_frame()
     
     def get_pixel_color(self, pos):
@@ -892,6 +951,40 @@ class AnimationCanvas(QWidget):
         
         self.setFixedSize(new_width, new_height)
         self.draw_current_frame()
+
+    def duplicate_current_frame(self):
+        """Duplicates the current frame in all layers."""
+        if not self.layers:
+            return False
+            
+        # Store the current frame index
+        current_frame = self.current_frame
+        
+        # For each layer, duplicate the current frame
+        for layer in self.layers:
+            if current_frame in layer.frames:
+                # Create a copy of the current frame
+                new_frame = layer.frames[current_frame].copy()
+                
+                # Shift all subsequent frames forward
+                new_frames = {}
+                for frame_idx in sorted(layer.frames.keys()):
+                    if frame_idx <= current_frame:
+                        new_frames[frame_idx] = layer.frames[frame_idx]
+                    else:
+                        new_frames[frame_idx + 1] = layer.frames[frame_idx]
+                        
+                # Insert the duplicated frame
+                new_frames[current_frame + 1] = new_frame
+                layer.frames = new_frames
+                
+                # Save state for undo/redo
+                layer._save_state()
+        
+        # Move to the duplicated frame
+        self.current_frame = current_frame + 1
+        self.draw_current_frame()
+        return True
 
 class TimelineWidget(QWidget):
     def __init__(self, canvas, parent=None):
@@ -1594,6 +1687,10 @@ class SelectionTool:
 class AnimationApp(QMainWindow):
     def __init__(self):
         super().__init__()
+
+        # Inicializar atributos de transformación
+        self.offset = QPoint(0, 0)
+        self.scale_factor = 1.0
         # Eliminar la barra de título predeterminada
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
         self.init_ui()
@@ -1743,12 +1840,75 @@ class AnimationApp(QMainWindow):
         self.setup_onion_skin_controls(tools_panel)
 
     def setup_shortcuts(self):
+        # Keep existing shortcuts
         self.copy_shortcut = QShortcut(QKeySequence.StandardKey.Copy, self)
         self.copy_shortcut.activated.connect(self.copy_current_frame)
         
         self.paste_shortcut = QShortcut(QKeySequence.StandardKey.Paste, self)
         self.paste_shortcut.activated.connect(self.paste_current_frame)
+        
+        # Add F5 shortcut for frame duplication
+        self.duplicate_shortcut = QShortcut(QKeySequence("F5"), self)
+        self.duplicate_shortcut.activated.connect(self.duplicate_frame)
 
+        # Tool shortcuts
+        self.pencil_shortcut = QShortcut(QKeySequence("1"), self)
+        self.pencil_shortcut.activated.connect(lambda: self.canvas.set_tool("pencil"))
+
+        self.eraser_shortcut = QShortcut(QKeySequence("2"), self)
+        self.eraser_shortcut.activated.connect(lambda: self.canvas.set_tool("eraser"))
+
+        self.bucket_shortcut = QShortcut(QKeySequence("3"), self)
+        self.bucket_shortcut.activated.connect(lambda: self.canvas.set_tool("bucket"))
+
+        self.selection_shortcut = QShortcut(QKeySequence("4"), self)
+        self.selection_shortcut.activated.connect(lambda: self.canvas.set_tool("selection"))
+        
+        # Add new shortcuts here
+        self.color_shortcut = QShortcut(QKeySequence("5"), self)
+        self.color_shortcut.activated.connect(self.show_color_dialog)
+
+        self.onion_skin_shortcut = QShortcut(QKeySequence("6"), self)
+        self.onion_skin_shortcut.activated.connect(self.canvas.toggle_onion_skin)
+
+        # Pen size shortcuts
+        self.increase_size = QShortcut(QKeySequence("+"), self)
+        self.increase_size.activated.connect(self._increase_pen_size)
+
+        self.decrease_size = QShortcut(QKeySequence("-"), self)
+        self.decrease_size.activated.connect(self._decrease_pen_size)
+
+        # File operation shortcuts
+        self.open_shortcut = QShortcut(QKeySequence("Ctrl+O"), self)
+        self.open_shortcut.activated.connect(self.open_file)
+        
+        self.save_shortcut = QShortcut(QKeySequence("Ctrl+S"), self)
+        self.save_shortcut.activated.connect(self.save_file)
+        
+        self.import_shortcut = QShortcut(QKeySequence("Ctrl+I"), self)
+        self.import_shortcut.activated.connect(self.import_image)
+        
+
+    
+    def _increase_pen_size(self):
+        current_size = self.canvas.pen_size
+        new_size = min(50, current_size + 1)  # Maximum size is 50
+        self.canvas.set_pen_size(new_size)
+        self.size_label.setText(str(new_size))
+
+    def _decrease_pen_size(self):
+        current_size = self.canvas.pen_size
+        new_size = max(1, current_size - 1)  # Minimum size is 1
+        self.canvas.set_pen_size(new_size)
+        self.size_label.setText(str(new_size))
+    
+    def duplicate_frame(self):
+        """Handles the frame duplication action."""
+        if self.canvas.duplicate_current_frame():
+            self.timeline_widget.update_lists()
+            QMessageBox.information(self, "Éxito", "Fotograma duplicado correctamente")
+        else:
+            QMessageBox.warning(self, "Advertencia", "No se pudo duplicar el fotograma")
     def add_slider_control(self, parent_layout, label_text, min_val, max_val, default_val, callback):
         layout = QHBoxLayout()
         layout.addWidget(QLabel(label_text))
@@ -1992,7 +2152,9 @@ class AnimationApp(QMainWindow):
                     "Error", 
                     f"Error al importar la imagen:\n{str(e)}"
                 )
- #------------------------Modificado por Charlie Martínez, 21-01-2025-------------------------------------------   
+    
+    
+    #------------------------Modificado por Charlie Martínez, 21-01-2025-------------------------------------------   
     def save_file(self):
         file_name, _ = QFileDialog.getSaveFileName(
             self,
