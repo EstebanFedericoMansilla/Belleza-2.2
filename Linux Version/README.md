@@ -1,55 +1,34 @@
-# Belleza
+# README.Debian
 
-Este es el paquete para Linux **Belleza**, una aplicación de animación 2D cuadro a cuadro sencilla.
+Este es el paquete **Belleza**, una aplicación de animación 2D cuadro a cuadro sencilla.
 
-## Autor
-- **Esteban Federico Mansilla**
+**Autor:** Esteban Federico Mansilla.  
+**Mantenedor del paquete para Quirinux:** Charlie Martínez.  
+**Compatibilidad:** Paquete compatible con Debian, Devuan y derivadas.
 
-## Mantenedor del paquete para Quirinux
-- **Charlie Martínez**
-
-## Paquete compatible con
-- Debian
-- Devuan
-- Derivadas
-
-## Compilación del paquete .deb
-
-1) Descargar la carpeta belleza_2.2.0_all
-2) dpkg -b belleza_2.2.0_all
+---
 
 ## Instalación
 
-### Para Quirinux:
-- Instalación disponible desde el **Centro de Software**.
+### Para Quirinux
 
-### Otras distribuciones:
+Instalación disponible desde el Centro de Software.
 
-Descargar el instalador .deb desde:
-
-[https://repo.quirinux.org/pool/main/b/belleza/]
+### Para otras distribuciones
 
 Si su distribución incluye alguna herramienta gráfica preinstalada, basta con hacer doble clic sobre el fichero `belleza_2.2.2_all.deb`.
 
-### Instrucciones para Ubuntu:
+### Instalación por comandos
 
-1. Sitúese en el directorio donde se encuentra el fichero y utilice el siguiente comando:
+Sitúese en el directorio donde se encuentra el fichero y utilice el siguiente comando con `sudo` o `su` según su distribución:
 
-   ```bash
-    sudo apt install ./belleza_2.2.2_all.deb
-    ```
+```bash
+apt install ./belleza_2.2.2_all.deb
+```
 
-2. Después de la instalación, la aplicación estará disponible en el menú de aplicaciones bajo la categoría **Animación** en Quirinux o **Graphics** en las demás distribuciones.
+Después de la instalación, la aplicación estará disponible en el menú de aplicaciones bajo la categoría **"Animación"** en Quirinux o **"Graphics"** en las demás distribuciones.
 
-### Instalación por comandos para otras distros de base Debian:
-
-1. Sitúese en el directorio donde se encuentra el fichero y utilice el siguiente comando con `sudo` o `su root` según su distribución:
-
-   ```bash
-    dpkg -i install ./belleza_2.2.2_all.deb
-    ```
-
-2. Después de la instalación, la aplicación estará disponible en el menú de aplicaciones bajo la categoría **Animación** en Quirinux o **Graphics** en las demás distribuciones.
+---
 
 ## Uso
 
@@ -59,26 +38,70 @@ Si su distribución incluye alguna herramienta gráfica preinstalada, basta con 
     belleza
     ```
 
-2. Si desea crear un nuevo proyecto de animación, seleccione **"Nuevo Proyecto"** en el menú principal. La aplicación le permitirá dibujar y animar imágenes cuadro por cuadro.
+2. Para crear un nuevo proyecto de animación, seleccione **"Nuevo Proyecto"** en el menú principal. La aplicación le permitirá dibujar y animar imágenes cuadro por cuadro.
 
 3. Para exportar su proyecto, use las opciones disponibles en el menú **"Exportar"**, donde podrá guardar sus animaciones como imágenes o videos.
 
+---
+
+## Atajos de teclado
+
+### Herramientas principales
+- **1**: Herramienta lápiz.  
+- **2**: Herramienta borrador.  
+- **3**: Herramienta cubo.  
+- **4**: Herramienta de selección.  
+- **5**: Selector de color.  
+- **6**: Alternar piel de cebolla.
+
+### Configuración de herramientas
+- **+**: Aumentar tamaño del lápiz.  
+- **-**: Disminuir tamaño del lápiz.
+
+### Edición y navegación
+- **Ctrl + Z**: Elimina trazos.  
+- **Ctrl + Y**: Rehace trazos eliminados.  
+- **Ctrl + C**: Copia un fotograma.  
+- **Ctrl + V**: Pega un fotograma.  
+- **F5**: Duplica un fotograma.  
+- **Control + scroll del mouse**: Zoom (acercar/alejar).  
+- **Alt + scroll**: Mover horizontalmente.  
+- **Shift + scroll**: Mover verticalmente.  
+- **Botón secundario**: Opciones de agregado, copiado y pegado de capas y fotogramas, así como para subir o bajar dibujos en el lienzo.  
+- **Flechas izquierda/derecha**: Moverse entre fotogramas.
+
+### Atajos del menú Archivo
+- **Ctrl + O**: Abrir archivo.  
+- **Ctrl + S**: Guardar archivo.  
+- **Ctrl + I**: Importar imagen.
+
+### Barra espaciadora
+- Reproduce y detiene la animación (debe habilitarse primero con el botón de reproducir animación).  
+- Repite acciones de agregar y eliminar fotogramas.  
+- Acelera el flujo de trabajo al omitir los diálogos de confirmación al agregar o eliminar fotogramas.
+
+---
+
 ## Dependencias
 
-El paquete Belleza requiere las siguientes dependencias:
+El paquete **Belleza** requiere las siguientes dependencias:
 
-- python3-pyqt6
-- python3-numpy
-- python3-scipy
-- python3-pil
-- ffmpeg (para exportar videos)
+- `python3-pyqt6`
+- `python3-numpy`
+- `python3-scipy`
+- `python3-pil`
+- `ffmpeg` (para exportar videos)
+
+---
 
 ## Licencia
 
 Este programa es de código abierto.
 
+---
+
 ## Más información
 
 Puede encontrar el código fuente, más información y detalles sobre el proyecto en:
 
-[https://github.com/EstebanFedericoMansilla](https://github.com/EstebanFedericoMansilla)
+[GitHub - EstebanFedericoMansilla](https://github.com/EstebanFedericoMansilla)
