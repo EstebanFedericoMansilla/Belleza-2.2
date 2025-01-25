@@ -1,0 +1,17 @@
+
+Deshabilitar el papel cebolla para que no haya latencia al dibujar!
+
+Al exportar imágenes, hacerlo dentro de una carpeta ya, que si exportamos al escritorio no se exportara.
+
+Si alguna capa no se exporta cambiar el nombre.
+
+Si alguna imagen no se exporta en una carpeta, puede ser que en esa carpeta ya haya una imagen con nombre de fotograma 0000.
+
+
+Disable onion skin so there is no latency when drawing!
+
+When exporting images, do so within a folder, which if we export to the desktop it will not be exported.
+
+If any layer is not exported, change the name.
+
+If any image does not export to a folder, it may be that an image with frame name 0000 already exists in that folder.
