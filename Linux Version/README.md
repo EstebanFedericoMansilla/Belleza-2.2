@@ -1,4 +1,4 @@
-# README.Debian
+# Belleza (versión para Linux)
 
 Este es el paquete **Belleza**, una aplicación de animación 2D cuadro a cuadro sencilla.
 
