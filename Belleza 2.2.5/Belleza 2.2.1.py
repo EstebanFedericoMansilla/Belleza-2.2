@@ -509,7 +509,27 @@ class AnimationCanvas(QWidget):
         painter.scale(self.scale_factor, self.scale_factor)
         
         # Draw background
-        painter.fillRect(self.rect(), QColor("#c7c7c7"))
+        painter.fillRect(self.rect(), self.background_color)
+        
+        # Draw onion skin frames if enabled
+        if self.onion_skin_enabled:
+            # Draw previous frames with blue tint
+            for i in range(1, self.onion_skin_frames + 1):
+                prev_frame = self.current_frame - i
+                if prev_frame >= 0:
+                    opacity = self.onion_skin_opacity * (1 - (i - 1) / self.onion_skin_frames) / 100.0
+                    painter.setOpacity(opacity)
+                    tint_color = QColor(0, 0, 255, int(255 * opacity))
+                    self._draw_onion_frame(painter, prev_frame, tint_color)
+            
+            # Draw future frames with red tint
+            for i in range(1, self.onion_skin_frames + 1):
+                next_frame = self.current_frame + i
+                if next_frame < max(len(layer.frames) for layer in self.layers if layer.frames):
+                    opacity = self.onion_skin_opacity * (1 - (i - 1) / self.onion_skin_frames) / 100.0
+                    painter.setOpacity(opacity)
+                    tint_color = QColor(255, 0, 0, int(255 * opacity))
+                    self._draw_onion_frame(painter, next_frame, tint_color)
         
         # Draw current frame layers
         painter.setOpacity(1.0)
