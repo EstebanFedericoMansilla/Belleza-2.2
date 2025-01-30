@@ -90,6 +90,7 @@ El paquete **Belleza** requiere las siguientes dependencias:
 - `python3-numpy`
 - `python3-scipy`
 - `python3-pil`
+- `python3-pyqt6`
 - `ffmpeg` (para exportar videos)
 
 ---
