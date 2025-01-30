@@ -1,10 +1,10 @@
-Package: Belleza
-Version: 2.2.0
+Package: belleza
+Version: 2.2.5
 Maintainer: Charlie Martinez <cmartinez@quirinux.org>
 Section: graphics
 Homepage: https://www.quirinux.org
 Architecture: all
-Depends: python3-pyqt6, python3-numpy, python3-scipy, python3-pil, ffmpeg
+Depends: python3-pyqt6, python3-numpy, python3-scipy, python3-pil, ffmpeg, python3-pyqt6 
 Priority: optional
 Installed-Size: 208077
 Description: Belleza
