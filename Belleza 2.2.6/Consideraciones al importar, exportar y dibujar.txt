@@ -1,0 +1,11 @@
+
+Deshabilitar el papel cebolla para que no haya latencia al dibujar!
+
+Al exportar imágenes, hacerlo dentro de una carpeta ya, que si exportamos al escritorio no se exportara.
+
+Si alguna capa no se exporta cambiar el nombre.
+
+Si alguna imagen no se exporta en una carpeta, puede ser que en esa carpeta ya haya una imagen con nombre de fotograma 0000.
+
+Evitar que se ralentice la aplicación al dibujar con un lienzo más grande: Al aumentar el tamaño del lienzo y luego visualizar todo el lienzo con  los atajos de teclado Control mas scroll: El dibujado con la tableta se ralentiza, no así si dibujamos con el mouse, por lo que es mejor dibujar con mayor acercamiento, para así también que se conserve el suavizado del trazo.
+

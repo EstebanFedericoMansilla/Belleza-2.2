@@ -1,0 +1,21 @@
+Mejoras y correcciones en la última versión
+
+1. Corrección de la exportación de capas
+Se solucionó un problema que impedía la exportación correcta de capas en imagen y video. Ahora, este proceso se realiza sin inconvenientes.
+
+2. Nuevas funcionalidades en la herramienta de selección
+Se agregaron majegadores a la herramienta de selección, lo que permite voltear horizontal y verticalmente los dibujos. Además, se mejoró la funcionalidad de copiado y duplicación de dibujos en otros fotogramas.
+
+3. Mejora en la herramienta de selección
+La herramienta de selección se ha convertido en una herramienta multifuncional, gracias a las mejoras realizadas. Para obtener más información sobre cómo utilizar esta herramienta, consulta el manual de uso de Belelleza.
+
+Improvements and fixes in the latest version
+
+1. Layer export fix
+Fixed an issue that prevented layers from being exported correctly in image and video. Now, this process is done smoothly.
+
+2. New features in the selection tool
+Added scrollers to the selection tool, allowing drawings to be flipped horizontally and vertically. Additionally, the functionality of copying and duplicating drawings to other frames has been improved.
+
+3. Improvement in the selection tool
+The selection tool has become a multifunctional tool, thanks to the improvements made. For more information on how to use this tool, consult the Belelleza user manual.

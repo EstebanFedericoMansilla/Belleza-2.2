@@ -1,0 +1,75 @@
+
+
+Atajos de teclado de Belleza 2.0
+
+Presione 1 para la herramienta lápiz
+
+Presione 2 para la herramienta de borrador
+
+Presione 3 para la herramienta de cubo
+
+Presione 4 para la herramienta de selección
+
+Presione 5 para abrir el cuadro de diálogo del selector de color
+
+Presione 6 para alternar la función de piel de cebolla
+
+Presione + para aumentar el tamaño del lápiz. Presione - para disminuir el tamaño del lápiz.
+
+Control Z: Elimina trazos.
+
+Control Y: Rehace trazos eliminados.
+
+Control C: Copia un fotograma.
+
+Control V: Pega un fotograma.
+
+F5: Duplica un fotograma.
+
+Control + scroll del Mouse: Hace zoom hace adelante y hace atrás.
+
+Alt + scroll: Mueve hacia la derecha e izquierda horizontalmente.
+
+Shift + scroll: Sube y baja el lienzo.
+
+Botón secundario para opciones de agredado, copiado y pegado de capas y fotogramas:
+
+Botón secundario para opciones de subir y bajar dibujos en el lienzo.
+
+Con las flechas del teclado Izquierda y derecha, nos movemos entre los fotogramas.
+
+Atajos de menú Archivo:
+
+Ctrl+O: Abrir archivo
+
+Ctrl+S: Guardar archivo
+
+Ctrl+I: Importar imagen
+
+La Barra espaciadora cumple varias funciones: Reproduce y detiene la animación, para habilitar esta función hay que dar play con el botón de reproducir animación;
+Otra función de la barra espaciadora es que es un repetidor de las acciones de agregar y eliminar fotogramas, también suplanta tener que aceptar todos los diálogos de las acciones de agregar y eliminar fotogramas, lo que aumenta la velocidad de trabajo.
+
+Modo de uso de F5:
+F5: Duplica un fotograma. Si hay varias capas con fotogramas, se duplican todos los fotogramas, por lo que si se quiere duplicar solo un fotograma hay que copiar y pegar el fotograma. 
+
+Herramienta de Selección mover y escalar: Seleccionamos el dibujo, lo escalamos y lo movemos. O seleccionamos el dibujo, lo escalamos y damos un clic en el lienzo para que se aplique la transformación.
+
+Herramienta de Selección mover horizontalmente y verticalmente, Seleccionamos el dibujo lo movemos loa manejadores haciendo que pasen de largo y damos un clic dentro de la selección para que se apliquen los cambios.
+
+Herramienta de Selección Rotar dibujo: Seleccionamos el  dibujo y movemos el manejador superior;  para volver a escalar o mover horizontalmente y verticalmente, hay que usar la herramienta de selección y mover el manejador de rotación a su lugar de origen.
+
+Herramienta de Selección Duplicar dibujos: Seleccionamos el dibujo y, al moverlo de lugar se creara una copia; Si solo queremos mover el dibujo, lo seleccionamos, lo movemos un poco, para que cubra el dibujo, soltamos el botón de mouse y al presionar el botón,  podemos mover el dibujo sin que se cree una copia.
+
+Herramienta de Selección Duplicar dibujos en otros fotogramas: Seleccionamos el dibujo, vamos a otro fotograma y, realizamos una selección vacía, al hacerlo se duplicara el dibujo que habíamos seleccionado; Si no queremos duplicar los dibujos, al terminar de trabajar con la herramienta de Selección, selecionamos el lapiz, damos un clic en la capa y, al seleccionar la herramienta de Selección ya no se duplicara la selección anterior.
+
+Borrar con la herramienta de Selección: Una forma de borrar rápidamente es seleccionar la herramienta de selección con el botón o el atajo de teclado numero 4,  seleccionar una parte del lienzo y cubrir el dibujo que queremos borrar. 
+
+
+
+
+
+
+
+
+
+
