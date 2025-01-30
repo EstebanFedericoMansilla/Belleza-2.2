@@ -1,0 +1,16 @@
+[Desktop Entry]
+Name=Belleza
+Comment=Simple 2D frame-by-frame animation
+Comment[es]=Animación 2D cuadro a cuadro sencilla
+Comment[de]=Einfache 2D-Animation Frame-by-Frame
+Comment[fr]=Animation 2D simple image par image
+Comment[gl]=Animación 2D simple fotograma a fotograma
+Comment[it]=Animazione 2D semplice fotogramma per fotogramma
+Comment[pt]=Animação 2D simples quadro a quadro
+Comment[en]=Simple 2D frame-by-frame animation
+
+Exec=belleza
+Icon=/usr/share/icons/belleza.png
+Terminal=false
+Type=Application
+Categories=Animacion;

@@ -1,0 +1,12 @@
+#!/bin/bash
+
+set -e
+
+# Verificar si el archivo de categoría "Animación" existe
+if [ -f /usr/local/share/desktop-directories/quirinux-animacion.directory ]; then
+    # Si el archivo existe, copiar el archivo .desktop
+    cp -f /tmp/belleza.desktop /usr/share/applications/belleza.desktop
+fi
+
+# Fin del script
+exit 0

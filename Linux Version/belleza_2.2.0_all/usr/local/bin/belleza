@@ -1,0 +1,8 @@
+#!/bin/bash
+
+# Cambiar al directorio donde se encuentra el script
+cd /usr/local/bin
+
+# Ejecutar el script
+python3 belleza.py
+
