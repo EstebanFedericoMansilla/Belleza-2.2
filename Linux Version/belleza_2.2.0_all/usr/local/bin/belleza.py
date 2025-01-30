@@ -14,7 +14,8 @@ import gc
 import weakref
 import numpy as np
 from scipy.interpolate import splprep, splev
-
+from PyQt6.QtCore import Qt, QPoint, QRect
+from PyQt6.QtGui import QPainter, QPen, QColor, QImage
 from PyQt6.QtCore import (
     QBuffer, QByteArray, QIODevice, Qt, QSize, QPoint, 
     QPointF, QTimer, QRect
@@ -199,6 +200,7 @@ class AnimationCanvas(QWidget):
         self.pen_color = QColor(Qt.GlobalColor.black)
         self.pen_size = 3
         self.pen_opacity = 255
+        self.aa_manager = AntiAliasingManager()
         
         # Configuración del widget
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
@@ -208,7 +210,7 @@ class AnimationCanvas(QWidget):
         self.onion_skin_enabled = False
         self.onion_skin_frames = 1
         self.onion_skin_opacity = 30
-        
+        self.cursor_manager = CursorManager(self)
         # Inicializar cursores personalizados
         self.setup_cursors()
         
@@ -416,17 +418,27 @@ class AnimationCanvas(QWidget):
         self.update()
 
     def _setup_painter(self, painter):
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        """Configure painter settings including opacity"""
+        # Configure anti-aliasing
+        self.aa_manager.configure_painter(painter)
         
         if self.current_tool == "eraser":
             pen = QPen(Qt.GlobalColor.white)
             pen.setWidth(self.pen_size)
             painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_Clear)
         else:
-            pen = QPen(self.pen_color)
+            # Create color with opacity
+            color = QColor(self.pen_color)
+            color.setAlpha(int(255 * (self.pen_opacity / 100.0)))
+            
+            # Create and configure pen
+            pen = QPen()
+            pen.setColor(color)
             pen.setWidth(self.pen_size)
             pen.setCapStyle(Qt.PenCapStyle.RoundCap)
             pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+            
+            # Set composition mode for normal drawing
             painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceOver)
         
         painter.setPen(pen)
@@ -441,9 +453,14 @@ class AnimationCanvas(QWidget):
 
     def set_tool(self, tool):
         self.current_tool = tool
-
+        if tool == "selection":
+            self.setCursor(Qt.CursorShape.CrossCursor)
+        else:
+            self.cursor_manager.custom_cursor = self.cursor_manager.light_cursor
+            self.setCursor(self.cursor_manager.custom_cursor)
     def set_opacity(self, opacity):
-        self.pen_opacity = opacity
+        """Set the opacity value (0-100)"""
+        self.pen_opacity = max(0, min(100, opacity))
 
     def change_frame(self, frame_index):
         if frame_index >= 0 and self.layers:
@@ -493,48 +510,77 @@ class AnimationCanvas(QWidget):
 
     def paintEvent(self, event):
         painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        self.aa_manager.configure_painter(painter)
         
         # Apply transformations
         painter.translate(self.offset)
         painter.scale(self.scale_factor, self.scale_factor)
         
-        # Draw background with canvas color
-        painter.fillRect(self.rect(), QColor("#c7c7c7"))
+        # Draw background
+        painter.fillRect(self.rect(), self.background_color)
         
         # Draw onion skin frames if enabled
         if self.onion_skin_enabled:
-            # Draw previous frames in red
+            # Draw previous frames with blue tint
             for i in range(1, self.onion_skin_frames + 1):
-                frame_idx = self.current_frame - i
-                if frame_idx >= 0:
-                    painter.setOpacity((self.onion_skin_opacity / 100) * (1 - (i - 1) / self.onion_skin_frames))
-                    self._draw_onion_frame(painter, frame_idx, QColor(255, 0, 0, 128))
+                prev_frame = self.current_frame - i
+                if prev_frame >= 0:
+                    opacity = self.onion_skin_opacity * (1 - (i - 1) / self.onion_skin_frames) / 100.0
+                    painter.setOpacity(opacity)
+                    tint_color = QColor(0, 0, 255, int(255 * opacity))
+                    self._draw_onion_frame(painter, prev_frame, tint_color)
             
-            # Draw next frames in blue
+            # Draw future frames with red tint
             for i in range(1, self.onion_skin_frames + 1):
-                frame_idx = self.current_frame + i
-                if frame_idx < max(len(layer.frames) for layer in self.layers if layer.frames):
-                    painter.setOpacity((self.onion_skin_opacity / 100) * (1 - (i - 1) / self.onion_skin_frames))
-                    self._draw_onion_frame(painter, frame_idx, QColor(0, 0, 255, 128))
+                next_frame = self.current_frame + i
+                if next_frame < max(len(layer.frames) for layer in self.layers if layer.frames):
+                    opacity = self.onion_skin_opacity * (1 - (i - 1) / self.onion_skin_frames) / 100.0
+                    painter.setOpacity(opacity)
+                    tint_color = QColor(255, 0, 0, int(255 * opacity))
+                    self._draw_onion_frame(painter, next_frame, tint_color)
         
         # Draw current frame layers
         painter.setOpacity(1.0)
         for layer in reversed(self.layers):
             if layer.visible and self.current_frame in layer.frames:
                 current_frame = layer.frames[self.current_frame]
-                painter.setOpacity(layer.opacity / 100)
-                painter.drawImage(0, 0, current_frame)
+                painter.setOpacity(layer.opacity / 100.0)
+                
+                if (self.current_tool == "selection" and 
+                    layer == self.layers[self.current_layer] and 
+                    (self.selection_tool.moving or self.selection_tool.scaling)):
+                    # Draw temporary view for moving/scaling
+                    temp_frame = current_frame.copy()
+                    temp_painter = QPainter(temp_frame)
+                    
+                    # Clear original selection area
+                    temp_painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_Clear)
+                    if self.selection_tool.original_rect:
+                        x, y, w, h = self.selection_tool.original_rect
+                        temp_painter.fillRect(x, y, w, h, Qt.GlobalColor.transparent)
+                    
+                    # Draw current selection content
+                    temp_painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceOver)
+                    if self.selection_tool.scaling and hasattr(self.selection_tool, 'scaled_content'):
+                        content = self.selection_tool.scaled_content
+                    else:
+                        content = self.selection_tool.selected_content
+                        
+                    if content:
+                        x, y, w, h = self.selection_tool.selection_rect
+                        temp_painter.drawImage(x, y, content)
+                    
+                    temp_painter.end()
+                    painter.drawImage(0, 0, temp_frame)
+                else:
+                    painter.drawImage(0, 0, current_frame)
         
-        # Draw current frame image if exists
-        if hasattr(self, 'current_frame_image'):
-            painter.drawImage(0, 0, self.current_frame_image)
-        
-        # Draw selection rectangle if active
+        # Draw selection tools if active
         if self.current_tool == "selection" and self.selection_tool.selection_rect:
-            painter.setPen(QPen(Qt.GlobalColor.blue, 1, Qt.PenStyle.DashLine))
-            x, y, w, h = self.selection_tool.selection_rect
-            painter.drawRect(x, y, w, h)
+            painter.save()
+            painter.setOpacity(1.0)
+            self.selection_tool.draw_selection(painter)
+            painter.restore()
     
     def wheelEvent(self, event):
         modifiers = event.modifiers()
@@ -584,7 +630,15 @@ class AnimationCanvas(QWidget):
             # Si no hay modificadores, dejar que el evento se propague
             event.ignore()
     
-    
+    def createPen(self):
+        pen = QPen()
+        color = QColor(self.pen_color)
+        color.setAlpha(int(255 * self.pen_opacity / 100))  # Aplicar opacidad al color
+        pen.setColor(color)
+        pen.setWidth(self.pen_size)
+        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+        return pen
     def _draw_onion_frame(self, painter, frame_index, tint_color):
         for layer in reversed(self.layers):
             if layer.visible and frame_index in layer.frames:
@@ -624,39 +678,65 @@ class AnimationCanvas(QWidget):
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
+            # Transform coordinates to account for zoom and pan
             transformed_pos = (event.pos() - self.offset) / self.scale_factor
+            transformed_point = QPoint(int(transformed_pos.x()), int(transformed_pos.y()))
             
             if self.current_tool == "bucket":
-                # Convert position to integer coordinates for flood fill
-                point = QPoint(int(transformed_pos.x()), int(transformed_pos.y()))
+                # Handle bucket tool
                 target_color = self.get_pixel_color(transformed_pos)
-                self._flood_fill(point, target_color, self.pen_color)
+                self._flood_fill(transformed_point, target_color, self.pen_color)
                 
             elif self.current_tool == "selection":
-                if self.selection_tool.selection_rect:
-                    x, y, w, h = self.selection_tool.selection_rect
-                    if QRect(x, y, w, h).contains(QPoint(int(transformed_pos.x()), int(transformed_pos.y()))):
-                        self.selection_tool.start_moving(QPoint(int(transformed_pos.x()), int(transformed_pos.y())))
+                # Check for handle interaction first
+                handle = self.selection_tool.get_handle_at(transformed_point)
+                
+                if handle:
+                    # Start scaling if a handle is clicked
+                    self.selection_tool.start_scaling(transformed_point, handle)
+                    # Update cursor based on handle
+                    cursor_shape = self.selection_tool.get_cursor_for_handle(handle)
+                    self.setCursor(QCursor(cursor_shape))
+                elif self.selection_tool.selection_rect:
+                    # Check if clicking inside existing selection
+                    selection_rect = QRect(*self.selection_tool.selection_rect)
+                    if selection_rect.contains(transformed_point):
+                        self.selection_tool.start_moving(transformed_point)
+                        self.setCursor(QCursor(Qt.CursorShape.SizeAllCursor))
                     else:
-                        self.selection_tool.start_selection(QPoint(int(transformed_pos.x()), int(transformed_pos.y())))
+                        # Start new selection if clicking outside
+                        self.selection_tool.start_selection(transformed_point)
+                        self.setCursor(QCursor(Qt.CursorShape.CrossCursor))
                 else:
-                    self.selection_tool.start_selection(QPoint(int(transformed_pos.x()), int(transformed_pos.y())))
+                    # Start new selection if none exists
+                    self.selection_tool.start_selection(transformed_point)
+                    self.setCursor(QCursor(Qt.CursorShape.CrossCursor))
+                
+                self.update()
+                
             else:
+                # Handle drawing tools
                 self.drawing = True
-                self.current_points = []
-                self.current_points.append(transformed_pos)
+                self.current_points = [transformed_pos]
                 self.last_point = transformed_pos
                 if self.current_tool != "bucket":
                     self._draw_point(transformed_pos)
 
     def mouseMoveEvent(self, event):
         transformed_pos = (event.pos() - self.offset) / self.scale_factor
+        transformed_point = QPoint(int(transformed_pos.x()), int(transformed_pos.y()))
+
         if self.current_tool == "selection":
             if event.buttons() & Qt.MouseButton.LeftButton:
-                if self.selection_tool.moving:
-                    self.selection_tool.move_selection(QPoint(int(transformed_pos.x()), int(transformed_pos.y())))
+                if self.selection_tool.scaling:
+                    # Actualizar escalado si estamos arrastrando un manejador
+                    self.selection_tool.update_scaling(transformed_point)
+                elif self.selection_tool.moving:
+                    # Mover la selección si estamos arrastrando el área seleccionada
+                    self.selection_tool.move_selection(transformed_point)
                 else:
-                    self.selection_tool.update_selection(QPoint(int(transformed_pos.x()), int(transformed_pos.y())))
+                    # Actualizar el rectángulo de selección si estamos creando uno nuevo
+                    self.selection_tool.update_selection(transformed_point)
                 self.update()
         else:
             if self.drawing and self.last_point:
@@ -720,7 +800,13 @@ class AnimationCanvas(QWidget):
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
             if self.current_tool == "selection":
-                if self.selection_tool.moving:
+                if self.selection_tool.scaling:
+                    # Aplicar el escalado final
+                    if hasattr(self.selection_tool, 'scaled_content'):
+                        self.selection_tool.selected_content = self.selection_tool.scaled_content
+                        delattr(self.selection_tool, 'scaled_content')
+                    self.selection_tool.end_scaling()
+                elif self.selection_tool.moving:
                     self.move_selected_content()
                 else:
                     self.apply_selection_tool()
@@ -1137,16 +1223,17 @@ class TimelineWidget(QWidget):
 
     def show_layer_context_menu(self, pos):
         menu = QMenu(self)
+        move_down_action = QAction("Subir capa", self)
+        move_down_action.triggered.connect(self.move_layer_down)
+        move_down_action.setEnabled(self.canvas.current_layer > 0)
+        menu.addAction(move_down_action)
         
-        move_up_action = QAction("Subir dibujo", self)
+        move_up_action = QAction("Bajar capa", self)
         move_up_action.triggered.connect(self.move_layer_up)
         move_up_action.setEnabled(self.canvas.current_layer < len(self.canvas.layers) - 1)
         menu.addAction(move_up_action)
         
-        move_down_action = QAction("Bajar dibujo", self)
-        move_down_action.triggered.connect(self.move_layer_down)
-        move_down_action.setEnabled(self.canvas.current_layer > 0)
-        menu.addAction(move_down_action)
+        
         
         menu.addSeparator()
         
@@ -1815,6 +1902,32 @@ class AnimationApp(QMainWindow):
         smooth_slider.valueChanged.connect(self.update_smoothing)
         tools_panel.addWidget(smooth_slider)
         
+        # Control de opacidad
+        opacity_layout = QHBoxLayout()
+        opacity_layout.addWidget(QLabel("Opacidad:"))
+        self.opacity_label = QLabel("100%")
+        opacity_layout.addWidget(self.opacity_label)
+        tools_panel.addLayout(opacity_layout)
+
+        opacity_slider = QSlider(Qt.Orientation.Horizontal)
+        opacity_slider.setMinimum(0)
+        opacity_slider.setMaximum(100)
+        opacity_slider.setValue(100)
+        opacity_slider.valueChanged.connect(self.update_opacity)  # Conectar al método correcto
+        tools_panel.addWidget(opacity_slider)
+
+        # Control de calidad de anti-aliasing
+        aa_quality_layout = QHBoxLayout()
+        aa_quality_layout.addWidget(QLabel("Calidad AA:"))
+        self.aa_quality_slider = QSlider(Qt.Orientation.Horizontal)
+        self.aa_quality_slider.setMinimum(1)
+        self.aa_quality_slider.setMaximum(3)
+        self.aa_quality_slider.setValue(2)
+        self.aa_quality_slider.valueChanged.connect(self.update_aa_quality)
+        aa_quality_layout.addWidget(self.aa_quality_slider)
+        tools_panel.addLayout(aa_quality_layout)
+
+
         # Control de tamaño de pincel
         size_layout = QHBoxLayout()
         size_layout.addWidget(QLabel("Tamaño:"))
@@ -1838,7 +1951,23 @@ class AnimationApp(QMainWindow):
 
         # Configuración Onion Skin
         self.setup_onion_skin_controls(tools_panel)
-
+    
+    def update_aa_quality(self, value):
+        """Update anti-aliasing quality level"""
+        self.canvas.aa_manager.set_quality_level(value)
+        self.canvas.update()
+        
+    def update_opacity(self, value):
+        print(f"Opacidad actualizada: {value}%")  # Debug
+        self.canvas.pen_opacity = value
+        self.opacity_label.setText(f"{value}%")
+        self.canvas.update()
+    def toggle_anti_aliasing(self):
+        """Toggles anti-aliasing and updates button text"""
+        is_enabled = self.aa_toggle.isChecked()
+        self.canvas.aa_manager.set_enabled(is_enabled)
+        self.aa_toggle.setText("Activado" if is_enabled else "Desactivado")
+        self.canvas.draw_current_frame()
     def setup_shortcuts(self):
         # Keep existing shortcuts
         self.copy_shortcut = QShortcut(QKeySequence.StandardKey.Copy, self)
@@ -2079,8 +2208,8 @@ class AnimationApp(QMainWindow):
     
     def import_image(self):
         """
-        Importa una imagen y la coloca en una nueva capa.
-        Soporta formatos: PNG, JPG, JPEG, BMP
+        Importa una imagen y la ajusta para llenar completamente el lienzo.
+        Mantiene la proporción y escala la imagen para cubrir todo el espacio disponible.
         """
         # Mostrar diálogo de selección de archivo con filtros
         file_name, _ = QFileDialog.getOpenFileName(
@@ -2110,20 +2239,35 @@ class AnimationApp(QMainWindow):
                             QImage.Format.Format_ARGB32_Premultiplied)
                 frame.fill(Qt.GlobalColor.transparent)
 
-                # Escalar la imagen manteniendo proporción
+                # Calcular las dimensiones para el escalado
+                canvas_ratio = self.canvas.width() / self.canvas.height()
+                image_ratio = imported_image.width() / imported_image.height()
+
+                if canvas_ratio > image_ratio:
+                    # El canvas es más ancho que la imagen
+                    scaled_width = self.canvas.width()
+                    scaled_height = int(scaled_width / image_ratio)
+                else:
+                    # El canvas es más alto que la imagen
+                    scaled_height = self.canvas.height()
+                    scaled_width = int(scaled_height * image_ratio)
+
+                # Escalar la imagen para que cubra todo el lienzo
                 scaled_image = imported_image.scaled(
-                    self.canvas.width(),
-                    self.canvas.height(),
+                    scaled_width,
+                    scaled_height,
                     Qt.AspectRatioMode.KeepAspectRatio,
                     Qt.TransformationMode.SmoothTransformation
                 )
 
-                # Calcular posición para centrar la imagen
-                x = (self.canvas.width() - scaled_image.width()) // 2
-                y = (self.canvas.height() - scaled_image.height()) // 2
+                # Calcular posiciones para centrar y recortar la imagen
+                x = (scaled_width - self.canvas.width()) // -2
+                y = (scaled_height - self.canvas.height()) // -2
 
                 # Dibujar la imagen escalada en el frame
                 painter = QPainter(frame)
+                painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+                painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
                 painter.drawImage(x, y, scaled_image)
                 painter.end()
 
@@ -2185,7 +2329,10 @@ class AnimationApp(QMainWindow):
                 QMessageBox.critical(self, "Error", f"Error al guardar el archivo: {str(e)}")
 
     def export_image(self):
-        # Obtener directorio donde guardar las imágenes
+        """
+        Exporta los frames de la animación como imágenes PNG, 
+        combinando correctamente todas las capas visibles.
+        """
         directory = QFileDialog.getExistingDirectory(
             self,
             "Seleccionar carpeta para exportar imágenes",
@@ -2201,18 +2348,19 @@ class AnimationApp(QMainWindow):
                 # Guardar cada frame
                 for frame_index in range(max_frames):
                     # Crear imagen con el color de fondo
-                    current_frame = QImage(self.canvas.size(), QImage.Format.Format_ARGB32_Premultiplied)
-                    current_frame.fill(self.canvas.background_color)
+                    frame_image = QImage(
+                        self.canvas.width(),
+                        self.canvas.height(),
+                        QImage.Format.Format_ARGB32_Premultiplied
+                    )
+                    frame_image.fill(self.canvas.background_color)
                     
                     # Configurar el painter
-                    painter = QPainter(current_frame)
+                    painter = QPainter(frame_image)
                     painter.setRenderHint(QPainter.RenderHint.Antialiasing)
                     
-                    # Ordenar las capas
-                    sorted_layers = sorted(self.canvas.layers, key=lambda x: x.index)
-                    
-                    # Dibujar cada capa visible
-                    for layer in sorted_layers:
+                    # Dibujar cada capa visible desde abajo hacia arriba
+                    for layer in self.canvas.layers:  # Las capas ya están en el orden correcto
                         if layer.visible and frame_index in layer.frames:
                             frame = layer.frames[frame_index]
                             if not frame.isNull():
@@ -2225,19 +2373,26 @@ class AnimationApp(QMainWindow):
                     file_name = os.path.join(directory, f"frame_{frame_index:04d}.png")
                     
                     # Guardar imagen
-                    if not current_frame.save(file_name, "PNG"):
+                    if not frame_image.save(file_name, "PNG"):
                         raise Exception(f"Error al guardar el frame {frame_index}")
                 
                 QMessageBox.information(
-                    self, 
-                    "Éxito", 
+                    self,
+                    "Éxito",
                     f"Se exportaron {max_frames} imágenes correctamente en:\n{directory}"
                 )
                 
             except Exception as e:
-                QMessageBox.critical(self, "Error", f"Error al exportar las imágenes: {str(e)}")
+                QMessageBox.critical(
+                    self,
+                    "Error",
+                    f"Error al exportar las imágenes: {str(e)}"
+                )
 
     def export_video(self):
+        """
+        Exporta la animación como video MP4, combinando correctamente todas las capas visibles.
+        """
         try:
             import subprocess
         except ImportError:
@@ -2253,29 +2408,27 @@ class AnimationApp(QMainWindow):
         
         if file_name:
             try:
-                 # Asegúrate de que el nombre del archivo tenga la extensión .mp4
-                 if not file_name.endswith('.mp4'):
-                    file_name += '.mp4'
-                    
-                    temp_dir = tempfile.mkdtemp()
-                    
-                    if self.canvas.layers:
-                        max_frames = max(len(layer.frames) for layer in self.canvas.layers)
+                temp_dir = tempfile.mkdtemp()
+                
+                if self.canvas.layers:
+                    max_frames = max(len(layer.frames) for layer in self.canvas.layers)
                     
                     # Exportar frames
                     for frame_idx in range(max_frames):
-                        # Crear imagen con el color de fondo del canvas
-                        frame_image = QImage(self.canvas.size(), QImage.Format.Format_ARGB32_Premultiplied)
+                        # Crear imagen con el color de fondo
+                        frame_image = QImage(
+                            self.canvas.width(),
+                            self.canvas.height(),
+                            QImage.Format.Format_ARGB32_Premultiplied
+                        )
                         frame_image.fill(self.canvas.background_color)
                         
+                        # Configurar el painter
                         painter = QPainter(frame_image)
                         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
                         
-                        # Ordenar las capas por índice
-                        sorted_layers = sorted(self.canvas.layers, key=lambda x: x.index)
-                        
-                        # Dibujar cada capa visible
-                        for layer in sorted_layers:
+                        # Dibujar cada capa visible desde abajo hacia arriba
+                        for layer in self.canvas.layers:  # Las capas ya están en el orden correcto
                             if layer.visible and frame_idx in layer.frames:
                                 frame = layer.frames[frame_idx]
                                 if not frame.isNull():
@@ -2284,22 +2437,20 @@ class AnimationApp(QMainWindow):
                         
                         painter.end()
                         
-                        # Guardar frame
+                        # Guardar frame temporal
                         frame_file = os.path.join(temp_dir, f"frame_{frame_idx:04d}.png")
                         if not frame_image.save(frame_file, "PNG"):
                             raise Exception(f"Error al guardar el frame temporal {frame_idx}")
                     
-                    # Obtener ruta directorio del escritorio de forma genérica
-                    desktop_dir = os.environ.get('XDG_DESKTOP_DIR', os.path.expanduser('~/Desktop'))
-
-                    # Ruta completa con el nombre del archivo
-                    file_name = os.path.join(desktop_dir, file_name)
-
-                    # Crear video con FFmpeg  
+                    # Crear video con FFmpeg
                     try:
-                        fps = self.timeline_widget.speed_slider.value()  # Obtener FPS del slider
+                        fps = self.timeline_widget.speed_slider.value()
+                        # Asegurar que file_name tiene una extensión válida
+                        if not file_name.lower().endswith(('.mp4', '.avi', '.mkv', '.mov', '.webm')):
+                            file_name += '.mp4'  # Asigna .mp4 por defecto si no tiene extensión
+							
                         subprocess.run([
-                            'ffmpeg', 
+                            'ffmpeg',
                             '-framerate', str(fps),
                             '-i', os.path.join(temp_dir, 'frame_%04d.png'),
                             '-c:v', 'libx264',
@@ -2311,11 +2462,11 @@ class AnimationApp(QMainWindow):
                     except subprocess.CalledProcessError:
                         QMessageBox.critical(self, "Error", "Error al ejecutar FFmpeg")
                     except FileNotFoundError:
-                        QMessageBox.critical(self, "Error", "FFmpeg no encontrado. Instale FFmpeg")
-                    
-                    # Limpiar archivos temporales
-                    shutil.rmtree(temp_dir)
-                    
+                        QMessageBox.critical(self, "Error", "FFmpeg no encontrado. Por favor, instale FFmpeg")
+                    finally:
+                        # Limpiar archivos temporales
+                        shutil.rmtree(temp_dir)
+                        
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Error al exportar el video: {str(e)}")
                 if 'temp_dir' in locals():
@@ -2440,8 +2591,572 @@ class ResizableTimelineLayout(QWidget):
         super().resizeEvent(event)
         self._update_size_constraints()
 
+class AntiAliasingManager:
+    def __init__(self):
+        self.enabled = True
+        self.quality_level = 2  # 1: Fast, 2: Balanced, 3: High Quality
+        self.sample_count = 4   # MSAA sample count
+        self.edge_detection_threshold = 0.5
+        
+    def configure_painter(self, painter):
+        """Configure painter with appropriate anti-aliasing settings"""
+        if not self.enabled:
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
+            painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, False)
+            painter.setRenderHint(QPainter.RenderHint.TextAntialiasing, False)
+            return
 
+        # Enable basic antialiasing
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        
+        # Enable additional quality settings based on level
+        if self.quality_level >= 2:
+            painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
+            painter.setRenderHint(QPainter.RenderHint.TextAntialiasing, True)
+    def apply_to_image(self, source_image):
+        """Apply anti-aliasing to an entire image"""
+        if not self.enabled:
+            return source_image
+
+        # Create temporary image for anti-aliased result
+        result = QImage(source_image.size(), QImage.Format.Format_ARGB32_Premultiplied)
+        result.fill(Qt.GlobalColor.transparent)
+        
+        painter = QPainter(result)
+        self.configure_painter(painter)
+        
+        # Draw source image with anti-aliasing
+        painter.drawImage(0, 0, source_image)
+        painter.end()
+        
+        return result
+
+    def apply_to_stroke(self, path, painter, pen):
+        """Apply optimized anti-aliasing to a stroke path"""
+        if not self.enabled:
+            painter.strokePath(path, pen)
+            return
+            
+        # Save current painter state
+        painter.save()
+        
+        # Configure anti-aliasing
+        self.configure_painter(painter)
+        
+        # Adjust pen for smoother edges
+        adjusted_pen = QPen(pen)
+        if self.quality_level >= 2:
+            adjusted_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+            adjusted_pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+            adjusted_pen.setWidthF(pen.widthF() * 1.2)  # Slightly thicker for better AA
+        
+        # Draw stroke with anti-aliasing
+        painter.setPen(adjusted_pen)
+        painter.strokePath(path, adjusted_pen)
+        
+        # Restore painter state
+        painter.restore()
+
+    def set_quality_level(self, level):
+        """Set anti-aliasing quality level (1-3)"""
+        self.quality_level = max(1, min(3, level))
+
+    def set_enabled(self, enabled):
+        """Enable or disable anti-aliasing"""
+        self.enabled = enabled
+
+    def get_status(self):
+        """Get current anti-aliasing status"""
+        return {
+            'enabled': self.enabled,
+            'quality_level': self.quality_level,
+            'sample_count': self.sample_count
+        }
+class DrawingSystem:
+    def __init__(self):
+        self.pen_opacity = 100
+        self.pen_size = 3
+        self.pen_color = QColor(Qt.GlobalColor.black)
+        self.current_tool = "pencil"
+        self.current_frame = None
+        
+    def set_opacity(self, opacity):
+        """Set the opacity value (0-100) and update current drawing settings"""
+        self.pen_opacity = max(0, min(100, opacity))
+        # Force recreation of pen with new opacity
+        if hasattr(self, 'current_frame') and self.current_frame:
+            self.update_drawing_settings()
     
+    def update_drawing_settings(self):
+        """Update all drawing settings including opacity"""
+        if not hasattr(self, 'current_frame') or not self.current_frame:
+            return
+            
+        # Create new color with opacity
+        color = QColor(self.pen_color)
+        color.setAlpha(int(255 * (self.pen_opacity / 100.0)))
+        
+        # Update pen settings
+        pen = QPen()
+        pen.setColor(color)
+        pen.setWidth(self.pen_size)
+        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+        
+        return pen
+        
+    def setup_painter(self, painter):
+        """Configure painter with current opacity and tool settings"""
+        if self.current_tool == "eraser":
+            pen = QPen(Qt.GlobalColor.white)
+            pen.setWidth(self.pen_size)
+            painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_Clear)
+        else:
+            # Create color with opacity
+            color = QColor(self.pen_color)
+            color.setAlpha(int(255 * (self.pen_opacity / 100.0)))
+            
+            # Setup pen
+            pen = QPen()
+            pen.setColor(color)
+            pen.setWidth(self.pen_size)
+            pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+            pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+            
+            # Set composition mode for normal drawing
+            painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceOver)
+        
+        painter.setPen(pen)
+    
+    def draw_stroke(self, painter, start_point, end_point):
+        """Draw a stroke with current opacity settings"""
+        self.setup_painter(painter)
+        painter.drawLine(start_point, end_point)
+    
+    def draw_point(self, painter, point):
+        """Draw a point with current opacity settings"""
+        self.setup_painter(painter)
+        painter.drawPoint(point)  
+
+
+
+class SelectionTool:
+    def __init__(self):
+        self.start_pos = None
+        self.current_pos = None
+        self.selection_rect = None
+        self.selected_content = None
+        self.moving = False
+        self.scaling = False
+        self.active_handle = None
+        self.offset = None
+        self.original_rect = None
+        self.maintain_aspect_ratio = False
+        self.handle_size = 8
+        self.initialized = False
+        
+        # Define cursor mappings for handles
+        self.handle_cursors = {
+            "nw": Qt.CursorShape.SizeFDiagCursor,
+            "se": Qt.CursorShape.SizeFDiagCursor,
+            "ne": Qt.CursorShape.SizeBDiagCursor,
+            "sw": Qt.CursorShape.SizeBDiagCursor,
+            "n": Qt.CursorShape.SizeVerCursor,
+            "s": Qt.CursorShape.SizeVerCursor,
+            "e": Qt.CursorShape.SizeHorCursor,
+            "w": Qt.CursorShape.SizeHorCursor
+        }
+
+
+    def start_selection(self, pos):
+        """Initialize a new selection"""
+        self.start_pos = pos
+        self.current_pos = pos
+        self.selection_rect = None
+        self.selected_content = None
+        self.moving = False
+        self.scaling = False
+        self.initialized = True
+
+    def update_selection(self, pos):
+        """Update selection rectangle during drag"""
+        if not self.initialized:
+            return
+            
+        self.current_pos = pos
+        if not self.moving and not self.scaling:
+            x = min(self.start_pos.x(), pos.x())
+            y = min(self.start_pos.y(), pos.y())
+            width = abs(self.start_pos.x() - pos.x())
+            height = abs(self.start_pos.y() - pos.y())
+            self.selection_rect = [x, y, width, height]
+
+    def get_handles(self):
+        """Get all resize handles for the selection"""
+        if not self.selection_rect:
+            return []
+            
+        x, y, w, h = self.selection_rect
+        half_handle = self.handle_size // 2
+        
+        return [
+            ("nw", QRect(x - half_handle, y - half_handle, self.handle_size, self.handle_size)),
+            ("n", QRect(x + w//2 - half_handle, y - half_handle, self.handle_size, self.handle_size)),
+            ("ne", QRect(x + w - half_handle, y - half_handle, self.handle_size, self.handle_size)),
+            ("w", QRect(x - half_handle, y + h//2 - half_handle, self.handle_size, self.handle_size)),
+            ("e", QRect(x + w - half_handle, y + h//2 - half_handle, self.handle_size, self.handle_size)),
+            ("sw", QRect(x - half_handle, y + h - half_handle, self.handle_size, self.handle_size)),
+            ("s", QRect(x + w//2 - half_handle, y + h - half_handle, self.handle_size, self.handle_size)),
+            ("se", QRect(x + w - half_handle, y + h - half_handle, self.handle_size, self.handle_size))
+        ]
+
+    def draw_handles(self, painter):
+        """Draw selection handles and rectangle"""
+        if not self.selection_rect:
+            return
+
+        # Dibujar el rectángulo de selección con línea punteada
+        painter.setPen(QPen(Qt.GlobalColor.blue, 1, Qt.PenStyle.DashLine))
+        x, y, w, h = self.selection_rect
+        painter.drawRect(x, y, w, h)
+
+        # Dibujar los manejadores de escalado
+        painter.setPen(QPen(Qt.GlobalColor.blue))
+        painter.setBrush(QColor(255, 255, 255))
+        
+        # Tamaño de los manejadores
+        handle_size = self.handle_size
+        half_handle = handle_size // 2
+
+        # Posiciones de los manejadores
+        handles = [
+            (x - half_handle, y - half_handle),                    # Esquina superior izquierda
+            (x + w//2 - half_handle, y - half_handle),            # Centro superior
+            (x + w - half_handle, y - half_handle),               # Esquina superior derecha
+            (x - half_handle, y + h//2 - half_handle),            # Centro izquierdo
+            (x + w - half_handle, y + h//2 - half_handle),        # Centro derecho
+            (x - half_handle, y + h - half_handle),               # Esquina inferior izquierda
+            (x + w//2 - half_handle, y + h - half_handle),        # Centro inferior
+            (x + w - half_handle, y + h - half_handle)            # Esquina inferior derecha
+        ]
+
+        # Dibujar cada manejador
+        for hx, hy in handles:
+            painter.drawRect(hx, hy, handle_size, handle_size)
+
+
+    def draw_selection(self, painter):
+        """Draw selection rectangle and handles"""
+        if not self.selection_rect:
+            return
+
+        # Save painter state
+        painter.save()
+        
+        # Draw selection rectangle with dashed line
+        dash_pen = QPen(Qt.GlobalColor.blue, 1, Qt.PenStyle.DashLine)
+        painter.setPen(dash_pen)
+        x, y, w, h = self.selection_rect
+        painter.drawRect(x, y, w, h)
+
+        # Draw handles
+        handle_pen = QPen(Qt.GlobalColor.blue)
+        painter.setPen(handle_pen)
+        painter.setBrush(QColor(255, 255, 255))
+
+        # Handle positions
+        handle_size = self.handle_size
+        half_handle = handle_size // 2
+        handles = [
+            (x - half_handle, y - half_handle),                    # Top-left
+            (x + w//2 - half_handle, y - half_handle),            # Top-middle
+            (x + w - half_handle, y - half_handle),               # Top-right
+            (x - half_handle, y + h//2 - half_handle),            # Middle-left
+            (x + w - half_handle, y + h//2 - half_handle),        # Middle-right
+            (x - half_handle, y + h - half_handle),               # Bottom-left
+            (x + w//2 - half_handle, y + h - half_handle),        # Bottom-middle
+            (x + w - half_handle, y + h - half_handle)            # Bottom-right
+        ]
+
+        # Draw each handle
+        for hx, hy in handles:
+            painter.drawRect(hx, hy, handle_size, handle_size)
+
+        # Restore painter state
+        painter.restore()
+
+    def get_cursor_for_handle(self, handle):
+        """
+        Get the appropriate cursor shape for a given handle.
+        
+        Args:
+            handle (str): Handle identifier ('nw', 'n', 'ne', etc.)
+            
+        Returns:
+            Qt.CursorShape: Cursor shape for the handle
+        """
+        # Return the mapped cursor or default to arrow cursor
+        return self.handle_cursors.get(handle, Qt.CursorShape.ArrowCursor)
+
+    def get_handle_at(self, pos):
+        """Get handle at position"""
+        if not self.selection_rect:
+            return None
+            
+        x, y, w, h = self.selection_rect
+        handle_size = self.handle_size
+        half_handle = handle_size // 2
+        
+        handles = [
+            ("nw", QRect(x - half_handle, y - half_handle, handle_size, handle_size)),
+            ("n", QRect(x + w//2 - half_handle, y - half_handle, handle_size, handle_size)),
+            ("ne", QRect(x + w - half_handle, y - half_handle, handle_size, handle_size)),
+            ("w", QRect(x - half_handle, y + h//2 - half_handle, handle_size, handle_size)),
+            ("e", QRect(x + w - half_handle, y + h//2 - half_handle, handle_size, handle_size)),
+            ("sw", QRect(x - half_handle, y + h - half_handle, handle_size, handle_size)),
+            ("s", QRect(x + w//2 - half_handle, y + h - half_handle, handle_size, handle_size)),
+            ("se", QRect(x + w - half_handle, y + h - half_handle, handle_size, handle_size))
+        ]
+        
+        for handle_id, handle_rect in handles:
+            if handle_rect.contains(pos):
+                return handle_id
+        return None
+    def start_moving(self, pos):
+        """Start moving the selection"""
+        if self.selection_rect and self.selected_content:
+            self.moving = True
+            self.offset = pos - QPoint(self.selection_rect[0], self.selection_rect[1])
+
+    def move_selection(self, pos):
+        """Update selection position during move"""
+        if self.moving and self.selection_rect:
+            new_x = pos.x() - self.offset.x()
+            new_y = pos.y() - self.offset.y()
+            self.selection_rect[0] = new_x
+            self.selection_rect[1] = new_y
+
+    def start_scaling(self, pos, handle):
+        """Start scaling the selection"""
+        if not self.selection_rect:
+            return
+            
+        self.scaling = True
+        self.active_handle = handle
+        self.original_rect = self.selection_rect.copy()
+        self.start_pos = pos
+
+    def update_scaling(self, pos):
+        """Update selection size during scaling"""
+        if not self.scaling or not self.original_rect:
+            return
+
+        ox, oy, ow, oh = self.original_rect
+        dx = pos.x() - self.start_pos.x()
+        dy = pos.y() - self.start_pos.y()
+
+        # Calcular nuevas dimensiones basadas en el manejador activo
+        new_x, new_y = ox, oy
+        new_width, new_height = ow, oh
+
+        # Manejar escalado horizontal
+        if "e" in self.active_handle:  # Manejadores del lado derecho
+            new_width = max(1, ow + dx)
+        elif "w" in self.active_handle:  # Manejadores del lado izquierdo
+            new_width = max(1, ow - dx)
+            new_x = ox + dx
+
+        # Manejar escalado vertical
+        if "s" in self.active_handle:  # Manejadores inferiores
+            new_height = max(1, oh + dy)
+        elif "n" in self.active_handle:  # Manejadores superiores
+            new_height = max(1, oh - dy)
+            new_y = oy + dy
+
+        # Mantener proporción si se presiona Shift
+        if self.maintain_aspect_ratio and self.active_handle not in ("n", "s", "e", "w"):
+            aspect_ratio = ow / oh
+            if abs(new_width - ow) > abs(new_height - oh):
+                new_height = new_width / aspect_ratio
+                if "n" in self.active_handle:
+                    new_y = oy + (oh - new_height)
+            else:
+                new_width = new_height * aspect_ratio
+                if "w" in self.active_handle:
+                    new_x = ox + (ow - new_width)
+
+        # Actualizar el rectángulo de selección
+        self.selection_rect = [
+            int(new_x), 
+            int(new_y), 
+            int(max(1, new_width)), 
+            int(max(1, new_height))
+        ]
+
+        # Escalar el contenido seleccionado en tiempo real
+        if self.selected_content:
+            scaled_content = self.selected_content.scaled(
+                int(max(1, new_width)),
+                int(max(1, new_height)),
+                Qt.AspectRatioMode.IgnoreAspectRatio,
+                Qt.TransformationMode.SmoothTransformation
+            )
+            self.scaled_content = scaled_content  # Guardar temporalmente el contenido escalado
+    def end_scaling(self):
+        """Finish scaling operation"""
+        if self.scaling and self.selected_content:
+            scaled_content = self.selected_content.scaled(
+                self.selection_rect[2],
+                self.selection_rect[3],
+                Qt.AspectRatioMode.IgnoreAspectRatio,
+                Qt.TransformationMode.SmoothTransformation
+            )
+            self.selected_content = scaled_content
+            
+        self.scaling = False
+        self.active_handle = None
+        self.original_rect = None
+
+    def draw_selection(self, painter):
+        """Draw selection rectangle and handles"""
+        if not self.selection_rect:
+            return
+            
+        # Draw selection rectangle
+        painter.setPen(QPen(Qt.GlobalColor.blue, 1, Qt.PenStyle.DashLine))
+        painter.drawRect(*self.selection_rect)
+        
+        # Draw handles
+        painter.setPen(QPen(Qt.GlobalColor.blue))
+        painter.setBrush(QColor(255, 255, 255))
+        
+        for _, handle_rect in self.get_handles():
+            painter.drawRect(handle_rect)
+
+    def contains_point(self, pos):
+        """Check if point is within selection area"""
+        if not self.selection_rect:
+            return False
+        return QRect(*self.selection_rect).contains(pos)
+
+    def apply_to_layer(self, layer, frame_index):
+        """Apply selection to layer frame"""
+        if frame_index in layer.frames:
+            frame = layer.frames[frame_index]
+            if self.selection_rect:
+                x, y, w, h = self.selection_rect
+                selected_area = QImage(w, h, QImage.Format.Format_ARGB32_Premultiplied)
+                selected_area.fill(Qt.GlobalColor.transparent)
+                
+                painter = QPainter(selected_area)
+                painter.drawImage(0, 0, frame, x, y, w, h)
+                painter.end()
+                
+                self.selected_content = selected_area
+
+    def apply_transform_to_layer(self, layer, frame_index):
+        """Apply transformation to layer frame"""
+        if frame_index in layer.frames and self.selected_content:
+            frame = layer.frames[frame_index]
+            new_frame = QImage(frame.size(), QImage.Format.Format_ARGB32_Premultiplied)
+            new_frame.fill(Qt.GlobalColor.transparent)
+            
+            painter = QPainter(new_frame)
+            # Draw original frame
+            painter.drawImage(0, 0, frame)
+            
+            # Clear selection area
+            painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_Clear)
+            x, y, w, h = self.selection_rect
+            painter.fillRect(x, y, w, h, Qt.GlobalColor.transparent)
+            
+            # Draw transformed content
+            painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceOver)
+            painter.drawImage(x, y, self.selected_content)
+            painter.end()
+            
+            layer.frames[frame_index] = new_frame
+            layer._save_state()
+
+class CursorManager:
+    def __init__(self, canvas):
+        self.canvas = canvas
+        self.light_cursor = None
+        self.dark_cursor = None
+        self.custom_cursor = None
+        self.current_cursor = None
+        self.setup_cursors()
+
+    def setup_cursors(self):
+        """Configura los cursores para todas las herramientas"""
+        cursor_size = 28
+        # Crear cursores para diferentes fondos
+        self.light_cursor = self._create_cursor(cursor_size, Qt.GlobalColor.black)
+        self.dark_cursor = self._create_cursor(cursor_size, Qt.GlobalColor.white)
+        # Establecer cursor inicial
+        self.custom_cursor = self.light_cursor
+        self.current_cursor = self.custom_cursor
+
+    def _create_cursor(self, size, color):
+        """Crea un cursor personalizado con área central transparente"""
+        cursor_image = QImage(size, size, QImage.Format.Format_ARGB32_Premultiplied)
+        cursor_image.fill(Qt.GlobalColor.transparent)
+        
+        painter = QPainter(cursor_image)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        
+        # Configurar el color de contraste
+        contrast_color = Qt.GlobalColor.white if color == Qt.GlobalColor.black else Qt.GlobalColor.black
+        
+        # Definir dimensiones
+        center = size // 2
+        gap = 6  # Espacio más grande en el centro
+        line_start = 2
+        line_end = size - 2
+        
+        # Función helper para dibujar líneas segmentadas
+        def draw_segmented_lines(pen_color, width):
+            pen = QPen(pen_color)
+            pen.setWidth(width)
+            painter.setPen(pen)
+            # Líneas horizontales (izquierda y derecha del centro)
+            painter.drawLine(line_start, center, center - gap, center)
+            painter.drawLine(center + gap, center, line_end, center)
+            # Líneas verticales (arriba y abajo del centro)
+            painter.drawLine(center, line_start, center, center - gap)
+            painter.drawLine(center, center + gap, center, line_end)
+        
+        # Dibujar borde exterior (contraste)
+        draw_segmented_lines(contrast_color, 5)
+        # Dibujar líneas interiores
+        draw_segmented_lines(color, 3)
+        
+        painter.end()
+        cursor_pixmap = QPixmap.fromImage(cursor_image)
+        return QCursor(cursor_pixmap, center, center)
+
+    def update_cursor(self, pos):
+        """Actualiza el cursor basado en el color del fondo"""
+        if not self.canvas.layers or self.canvas.current_layer >= len(self.canvas.layers):
+            return
+            
+        layer = self.canvas.layers[self.canvas.current_layer]
+        if self.canvas.current_frame not in layer.frames:
+            return
+            
+        # Obtener color bajo el cursor
+        frame = layer.frames[self.canvas.current_frame]
+        pixel_color = frame.pixelColor(int(pos.x()), int(pos.y()))
+        
+        # Calcular luminosidad
+        luminance = (0.299 * pixel_color.red() +
+                    0.587 * pixel_color.green() +
+                    0.114 * pixel_color.blue())
+        
+        # Cambiar cursor según luminosidad
+        self.custom_cursor = self.dark_cursor if luminance < 128 else self.light_cursor
+        self.canvas.setCursor(self.custom_cursor)
+
 if __name__ == '__main__':
     app = QApplication([])
     window = AnimationApp()
