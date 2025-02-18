@@ -1,0 +1,95 @@
+Se igualo el suavizado de la tableta de dibujo con el suavizado del mouse
+
+Atajos de teclado de Belleza 2.0
+
+Presione 1 para la herramienta lápiz
+
+Presione 2 para la herramienta de borrador
+
+Presione 3 para la herramienta de cubo
+
+Presione 4 para la herramienta de selección
+
+Presione 5 para abrir el cuadro de diálogo del selector de color
+
+Presione 6 para alternar la función de piel de cebolla
+
+Presione + para aumentar el tamaño del lápiz. Presione - para disminuir el tamaño del lápiz.
+
+Control Z: Elimina trazos.
+
+Control Y: Rehace trazos eliminados.
+
+Control C: Copia un fotograma.
+
+Control V: Pega un fotograma.
+
+F5: Duplica un fotograma.
+
+Control + scroll del Mouse: Hace zoom hace adelante y hace atrás.
+
+Alt + scroll: Mueve hacia la derecha e izquierda horizontalmente.
+
+Shift + scroll: Sube y baja el lienzo.
+
+Botón secundario para opciones de agredado, copiado y pegado de capas y fotogramas:
+
+Botón secundario para opciones de subir y bajar dibujos en el lienzo.
+
+Con las flechas del teclado Izquierda y derecha, nos movemos entre los fotogramas.
+
+La Barra espaciadora cumple varias funciones: Reproduce y detiene la animación, para habilitar esta función hay que dar play con el botón de reproducir animación;
+Otra función de la barra espaciadora es que es un repetidor de las acciones de agregar y eliminar fotogramas, también suplanta tener que aceptar todos los diálogos de las acciones de agregar y eliminar fotogramas, lo que aumenta la velocidad de trabajo.
+
+Matched drawing tablet anti-aliasing to mouse anti-aliasing
+
+Beauty 2.0 Keyboard Shortcuts
+
+Press 1 for the pencil tool
+
+Press 2 for eraser tool
+
+Press 3 for the hub tool
+
+Press 4 for selection tool
+
+Press 5 to open the color picker dialog
+
+Press 6 to toggle onion skin function
+
+Press + to increase the pen size. Press - to decrease the pen size.
+
+Control Z: Delete strokes.
+
+Control Y: Redo deleted strokes.
+
+Control C: Copy a frame.
+
+Control V: Paste a frame.
+
+F5: Duplicates a frame.
+
+Mouse control + scroll: Zooms forward and backwards.
+
+Alt + scroll: Move left and right horizontally.
+
+Shift + scroll: Move the canvas up and down.
+
+Secondary button for adding, copying and pasting options for layers and frames:
+
+Secondary button for options to raise and lower drawings on the canvas.
+
+With the Left and Right keyboard arrows, we move between the frames.
+
+The Space Bar performs several functions: Plays and stops the animation, to enable this function you must press play with the play animation button;
+Another function of the space bar is that it is a repeater of the actions of adding and deleting frames, it also replaces having to accept all the dialogs of the actions of adding and deleting frames, which increases the speed of work.
+
+
+
+
+
+
+
+
+
+

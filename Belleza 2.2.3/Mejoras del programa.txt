@@ -1,0 +1,16 @@
+Mejoras del programa:
+
+1_ Suvisado de la tableta de dibujo, ahora es igual al del mouse
+
+2_El bote de pintura ahora rellana todos los los espacios de los trazos que estan unidos.
+
+3_ Agregado de todos los atajos de teclado incluido los del menú Archivo:
+
+
+Program improvements:
+
+1_ Suvised from the drawing tablet, now it is the same as the mouse
+
+2_The paint pot now fills all the spaces of the strokes that are joined.
+
+3_ Added all keyboard shortcuts including those from the File menu:

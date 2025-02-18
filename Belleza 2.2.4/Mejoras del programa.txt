@@ -1,0 +1,5 @@
+Mejoras del programa:
+
+Ahora se importan correctamente las imágenes, ocupando todo el lienzo.
+
+The images are now imported correctly, taking up the entire canvas.

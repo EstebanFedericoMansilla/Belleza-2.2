@@ -1,0 +1,20 @@
+Mejoras del programa:
+
+1_ La herramienta se selección ahora permite escalar lo seleccionado, aparte de poder moverlo como lo hacía antes.
+
+2_ Se mejoro el trazo y se agrego un slider de calidad.
+
+3_ Se agrego un slider de opacidad para la finalización de un trazo simulando un pincel.
+
+3_ Se soluciono el orden de capas. 
+
+
+Program improvements:
+
+1_ The selection tool now allows you to scale the selection, in addition to being able to move it as it did before.
+
+2_ The stroke was improved and a quality slider was added.
+
+3_ Added an opacity slider for the completion of a stroke simulating a brush.
+
+3_ The order of layers has been solved.
